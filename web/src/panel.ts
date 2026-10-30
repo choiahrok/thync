@@ -1,5 +1,5 @@
 // The side panel: what I focus on, background work, review requests, my PRs under review.
-// Clicking an item highlights it on the brain; only its ⓘ button opens the detail modal.
+// Clicking an item highlights it on the brain; only its 상세 button opens the detail modal.
 import { openDetail } from "./detail.ts";
 import { focus } from "./main.ts";
 import { isSource, shown, state } from "./state.ts";
@@ -17,7 +17,7 @@ export function setStatus(text: string): void {
 }
 
 export function infoButton(id: string): HTMLButtonElement {
-  const btn = Object.assign(document.createElement("button"), { className: "info", textContent: "ⓘ", title: "상세 보기" });
+  const btn = Object.assign(document.createElement("button"), { className: "info", textContent: "상세 ›", title: "상세 보기" });
   btn.onclick = (e) => { e.stopPropagation(); focus(id); openDetail(id); };
   btn.ondblclick = (e) => e.stopPropagation();
   return btn;

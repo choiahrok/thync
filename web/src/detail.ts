@@ -1,4 +1,4 @@
-// The modal: node details (opened from the ⓘ buttons or by clicking an already focused node) and the
+// The modal: node details (opened from the 상세 buttons or by clicking an already focused node) and the
 // hand-off confirmation in reflex.ts. Close with ×, a click outside, or Esc.
 import { post } from "./api.ts";
 import { refresh } from "./main.ts";
