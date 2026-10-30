@@ -17,7 +17,7 @@ export function setStatus(text: string): void {
 }
 
 export function infoButton(id: string): HTMLButtonElement {
-  const btn = Object.assign(document.createElement("button"), { className: "info", textContent: "상세 ›", title: "상세 보기" });
+  const btn = Object.assign(document.createElement("button"), { className: "info", textContent: "상세 →", title: "상세 보기" });
   btn.onclick = (e) => { e.stopPropagation(); focus(id); openDetail(id); };
   btn.ondblclick = (e) => e.stopPropagation();
   return btn;

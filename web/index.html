@@ -94,15 +94,16 @@
     li.sent .main::before { content: "● "; color: #c9a7ff; }
     li.focus .main::before, li.running .main::before, li.review .main::before { content: "● "; }
     li.focus .main::before { color: #ffcf6b; } li.running .main::before { color: #6be3ff; } li.review .main::before { color: #ff8a70; }
-    li { position: relative; padding-right: 66px; }
-    button.info { position: absolute; top: 7px; right: 7px; height: 28px; padding: 0 10px; display: inline-flex; align-items: center;
-      gap: 4px; background: linear-gradient(#34313d, #27252e); border: 1px solid #4a4656; border-radius: 7px;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 2px 4px rgba(0, 0, 0, .45);
-      color: var(--ink); font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1; cursor: pointer; transition: background .12s, transform .05s; }
-    button.info:hover { background: linear-gradient(#423e4d, #322f3a); border-color: #6b6580; }
-    button.info:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
-    button.info:focus-visible { outline: 2px solid #ffcf6b; outline-offset: 2px; }
-    .card { position: relative; padding-right: 66px; }
+    li { position: relative; padding-right: 64px; }
+    button.info { position: absolute; top: 8px; right: 8px; height: 24px; padding: 0 9px; display: inline-flex; align-items: center;
+      background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--quiet);
+      font: 11px "JetBrains Mono", Menlo, monospace; letter-spacing: .06em; cursor: pointer;
+      transition: color .12s, border-color .12s, background .12s; }
+    li:hover button.info, .card:hover button.info { color: var(--ink); border-color: #4a4656; }
+    button.info:hover { color: var(--glow) !important; border-color: rgba(255, 207, 107, .6) !important;
+      background: rgba(255, 207, 107, .08); }
+    button.info:focus-visible { outline: 1px solid var(--glow); outline-offset: 2px; }
+    .card { position: relative; padding-right: 64px; }
     li.empty { color: var(--quiet); font-size: 12px; cursor: default; }
     .toggle { display: block; font-size: 12px; color: var(--quiet); margin: -6px 0 12px; cursor: pointer; }
     .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--quiet); }
