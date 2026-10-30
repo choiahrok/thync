@@ -94,11 +94,12 @@
     li.sent .main::before { content: "● "; color: #c9a7ff; }
     li.focus .main::before, li.running .main::before, li.review .main::before { content: "● "; }
     li.focus .main::before { color: #ffcf6b; } li.running .main::before { color: #6be3ff; } li.review .main::before { color: #ff8a70; }
-    li { position: relative; padding-right: 30px; }
-    button.info { position: absolute; top: 6px; right: 6px; background: none; border: 1px solid transparent; border-radius: 4px;
-      color: var(--quiet); font-size: 14px; line-height: 1; padding: 3px 5px; cursor: pointer; }
+    li { position: relative; padding-right: 44px; }
+    button.info { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; display: inline-flex; align-items: center;
+      justify-content: center; background: #1c1b21; border: 1px solid var(--line); border-radius: 6px;
+      color: var(--quiet); font-size: 19px; line-height: 1; padding: 0; cursor: pointer; }
     button.info:hover { color: var(--ink); border-color: var(--line); background: #24222a; }
-    .card { position: relative; padding-right: 30px; }
+    .card { position: relative; padding-right: 44px; }
     li.empty { color: var(--quiet); font-size: 12px; cursor: default; }
     .toggle { display: block; font-size: 12px; color: var(--quiet); margin: -6px 0 12px; cursor: pointer; }
     .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--quiet); }
