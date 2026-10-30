@@ -92,6 +92,11 @@
     li.review { border-color: rgba(255, 138, 112, .35); background: rgba(255, 138, 112, .05); }
     li.sent { border-color: rgba(201, 167, 255, .35); background: rgba(201, 167, 255, .05); }
     li.sent .main::before { content: "● "; color: #c9a7ff; }
+    li.received { border-color: rgba(201, 167, 255, .25); }
+    li.received .sub { overflow-wrap: anywhere; }
+    li.received .main::before { content: "↩ "; color: #c9a7ff; }
+    li.received.changes { border-color: rgba(255, 138, 112, .45); }
+    li.received.changes .main::before { color: #ff8a70; }
     li.focus .main::before, li.running .main::before, li.review .main::before { content: "● "; }
     li.focus .main::before { color: #ffcf6b; } li.running .main::before { color: #6be3ff; } li.review .main::before { color: #ff8a70; }
     li { position: relative; padding-right: 64px; }
@@ -189,6 +194,8 @@
     <ul id="running"></ul>
     <h2>리뷰 요청</h2>
     <ul id="reviews"></ul>
+    <h2>받은 리뷰</h2>
+    <ul id="received"></ul>
     <h2>보낸 리뷰</h2>
     <ul id="sent"></ul>
   </aside>

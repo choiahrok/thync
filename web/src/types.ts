@@ -22,4 +22,5 @@ export interface ApiCard {
 export interface ApiGraph {
   schema: number; board: ApiCard[]; generated: number; focus_level: number; handoff: boolean; units: ApiUnit[]; nodes: ApiNode[];
   edges: [string, string][]; activity: ApiEvent[];
+  received: { pr: string; author: string; state: string; at: string; text: string }[];
 }

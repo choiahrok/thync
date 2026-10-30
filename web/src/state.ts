@@ -15,7 +15,7 @@ export function recall(key: string): string | null {
 }
 
 export const state = {
-  data: { schema: 1, board: [], generated: 0, focus_level: 0, handoff: false, units: [], nodes: [], edges: [], activity: [] } as ApiGraph,
+  data: { schema: 1, board: [], generated: 0, focus_level: 0, handoff: false, received: [], units: [], nodes: [], edges: [], activity: [] } as ApiGraph,
   graph: undefined as unknown as BrainGraph, // built by main before the renderer starts
   signature: "",                             // when it changes, the graph is rebuilt from scratch
   days: Number(recall("days")) || 7,

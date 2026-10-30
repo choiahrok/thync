@@ -121,6 +121,7 @@ flowchart TD
 | `units[]` | 작업 단위: `id`, `name`, `auto_name`, `title`(세션 모드에서는 가장 최근 세션 제목), `profile`, `sessions`, `keys`, `working`, `count`, `updated`, `glow` |
 | `nodes[]` | `id`, `name`, `kind`, `profile`, `glow`, `status`(`active`·`dormantRelevant`·`archived`), `roles`(`focus`·`running`·`review`·`sent`), `detail`(아래) |
 | `edges[]` | 노드 id 두 개 |
+| `received[]` | 내 PR 에 다른 사람이 남긴 리뷰(리뷰어마다 가장 최근 것), 최신순 최대 30개: `pr`(PR 노드 id), `author`, `state`, `at`, `text`(본문 앞 300자) |
 | `activity[]` | 최근 활동(세션 로그를 읽으면 30분, 아니면 24시간): `at`, `kind`(`prompt`·`tool`·`commit`·`jira`·`notion`), `text`, `session`(활동한 노드 id), `title`, `profile` |
 | `board[]` | 칸반 카드: `id`, `title`, `sub`, `column`, `auto_column`, `moved`, `note`, `file`, `profile`, `updated`, `focus`, `tags` |
 

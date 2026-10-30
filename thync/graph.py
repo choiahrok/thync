@@ -218,10 +218,17 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         feed(at, "notion", p["title"], pid, p["title"], PROFILE_WORK)
 
     # My PRs waiting on review. A PR a session already linked keeps its unit and gains the role.
+    received = []  # the latest review from each reviewer on my PRs, for the side panel
     for pr in (github.sent_reviews(now) if "github" in SOURCES else []):
         if now - epoch(pr["updatedAt"]) > window:
             continue
         repo = pr["repository"]["name"]
+        me = (pr.get("author") or {}).get("login", "")
+        for r in pr["latestReviews"]["nodes"]:
+            who = (r.get("author") or {}).get("login", "")
+            if who and who != me and now - epoch(r.get("submittedAt") or "") <= window:
+                received.append({"pr": f"pr:{pr['url']}", "author": who, "state": r["state"], "at": r["submittedAt"],
+                                 "text": github.plain(r.get("body"))[:300]})
         state = github.review_state(pr)
         reviewers = [r["requestedReviewer"].get("login") or r["requestedReviewer"].get("name", "")
                      for r in pr["reviewRequests"]["nodes"] if r.get("requestedReviewer")]
@@ -277,4 +284,5 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
     return {"schema": SCHEMA, "generated": int(now), "days": days, "focus_level": round(focus_level, 3), "handoff": HANDOFF,
             "units": ranked, "nodes": list(nodes.values()),
             "edges": [list(e) for e in edges if e[0] in nodes and e[1] in nodes], "activity": activity[:40],
+            "received": sorted(received, key=lambda r: r["at"], reverse=True)[:30],
             "board": board.build_board(units, nodes, names, card_files)}

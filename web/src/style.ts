@@ -16,6 +16,9 @@ export const isHub = (n: ApiNode): boolean => n.glow >= 0.5;
 export const cut = (t: string, n = 30): string => (t.length > n ? t.slice(0, n - 1) + "…" : t);
 export const clock = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour12: false });
 export const epochMs = (v: string | number): number => (typeof v === "number" ? v * 1000 : Date.parse(v));
+export const REVIEW_STATE: Record<string, string> = {
+  APPROVED: "승인", CHANGES_REQUESTED: "수정 요청", COMMENTED: "코멘트", DISMISSED: "철회됨" };
+
 export const ago = (sec: number): string => {
   const m = Math.round((Date.now() / 1000 - sec) / 60);
   return m < 1 ? "방금" : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`;

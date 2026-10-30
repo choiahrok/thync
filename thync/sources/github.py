@@ -17,9 +17,9 @@ _commits: tuple[float, list] = (0.0, [])
 MAX_BRANCHES = 20  # pushed branches whose head commit message is fetched
 
 SENT_QUERY = """query { search(query:"is:open is:pr author:@me archived:false", type:ISSUE, first:50) { nodes { ... on PullRequest {
-  title url number updatedAt isDraft repository { name } reviewDecision
+  title url number updatedAt isDraft repository { name } reviewDecision author { login }
   reviewRequests(first:5) { nodes { requestedReviewer { ... on User { login } ... on Team { name } } } }
-  latestReviews(first:10) { nodes { author { login } state } } } } } }"""
+  latestReviews(first:10) { nodes { author { login } state submittedAt body } } } } } }"""
 
 
 def review_requests(now: float) -> list[dict]:
@@ -118,20 +118,20 @@ REVIEWS_QUERY = """query($owner: String!, $name: String!, $number: Int!) { repos
 _pr_reviews: dict[str, tuple[float, dict]] = {}
 
 
-def _text(body: str | None) -> str:
+def plain(body: str | None) -> str:
     """Comment body without HTML comments, which bots use for hidden markers."""
     return re.sub(r"<!--.*?-->", "", body or "", flags=re.S).strip()
 
 
 def parse_reviews(pr: dict, me: str) -> dict:
     """Reviews others left on a PR, and its comment threads with the unresolved ones first."""
-    reviews = [{"author": (r.get("author") or {}).get("login", ""), "state": r["state"], "body": _text(r.get("body")),
+    reviews = [{"author": (r.get("author") or {}).get("login", ""), "state": r["state"], "body": plain(r.get("body")),
                 "at": r.get("submittedAt") or "", "url": r.get("url", "")}
                for r in pr["reviews"]["nodes"]
                if r["state"] != "PENDING" and (r.get("author") or {}).get("login", "") != me
-               and (_text(r.get("body")) or r["state"] in ("APPROVED", "CHANGES_REQUESTED"))]
+               and (plain(r.get("body")) or r["state"] in ("APPROVED", "CHANGES_REQUESTED"))]
     threads = [{"path": t.get("path") or "", "line": t.get("line"), "resolved": t["isResolved"], "outdated": t["isOutdated"],
-                "comments": [{"author": (c.get("author") or {}).get("login", ""), "body": _text(c.get("body")),
+                "comments": [{"author": (c.get("author") or {}).get("login", ""), "body": plain(c.get("body")),
                               "at": c.get("createdAt") or "", "url": c.get("url", "")} for c in t["comments"]["nodes"]]}
                for t in pr["reviewThreads"]["nodes"]]
     threads.sort(key=lambda t: t["resolved"])

@@ -3,7 +3,7 @@
 import { api, post } from "./api.ts";
 import { refresh } from "./main.ts";
 import { state } from "./state.ts";
-import { ago } from "./style.ts";
+import { REVIEW_STATE, ago } from "./style.ts";
 
 export const modalEl = document.querySelector<HTMLDivElement>("#modal")!;
 export const modalTitle = document.querySelector<HTMLHeadingElement>("#modal-title")!;
@@ -102,9 +102,6 @@ function showDetail(id: string): void {
   }));
   if (n.roles.includes("sent") && typeof n.detail.url === "string") void showReviews(id, n.detail.url);
 }
-
-const REVIEW_STATE: Record<string, string> = {
-  APPROVED: "승인", CHANGES_REQUESTED: "수정 요청", COMMENTED: "코멘트", DISMISSED: "철회됨" };
 
 interface Comment { author: string; body: string; at: string; url: string }
 interface Thread { path: string; line: number | null; resolved: boolean; outdated: boolean; comments: Comment[] }

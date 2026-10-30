@@ -3,13 +3,14 @@
 import { openDetail } from "./detail.ts";
 import { focus } from "./main.ts";
 import { isSource, shown, state } from "./state.ts";
-import { ago, cut } from "./style.ts";
+import { REVIEW_STATE, ago, cut } from "./style.ts";
 import type { ApiNode } from "./types.ts";
 
 const focusList = document.querySelector<HTMLUListElement>("#focus")!;
 const runningList = document.querySelector<HTMLUListElement>("#running")!;
 const reviewList = document.querySelector<HTMLUListElement>("#reviews")!;
 const sentList = document.querySelector<HTMLUListElement>("#sent")!;
+const receivedList = document.querySelector<HTMLUListElement>("#received")!;
 const statusLine = document.querySelector<HTMLSpanElement>("#status")!;
 
 export function setStatus(text: string): void {
@@ -68,6 +69,17 @@ export function renderPanel(): void {
   list(sentList, sent.map((n) => item(n, `${n.name} ${String(n.detail.text)}`,
     `${String(n.detail.review_state)}${n.detail.reviewers ? ` · 대기: ${n.detail.reviewers}` : ""} · ${ago(Date.parse(String(n.detail.updated)) / 1000)}`, "sent")),
     "리뷰를 기다리는 내 PR 없음");
+
+  // Reviews others left on my PRs, newest first. Clicking shows the PR; its 상세 button opens the full reviews.
+  const shownById = new Map(visible.map((n) => [n.id, n]));
+  const received = (state.data.received ?? []).filter((r) => shownById.has(r.pr));
+  list(receivedList, received.map((r) => {
+    const n = shownById.get(r.pr)!;
+    const li = item(n, `${r.author} · ${REVIEW_STATE[r.state] ?? r.state} — ${n.name}`,
+      `${r.text ? cut(r.text.replace(/[#*`>_]+/g, "").replace(/\s+/g, " ").trim(), 90) : "줄 코멘트"} · ${ago(Date.parse(r.at) / 1000)}`, "received");
+    if (r.state === "CHANGES_REQUESTED") li.classList.add("changes");
+    return li;
+  }), "받은 리뷰 없음");
 
   setStatus(`몰입 ${Math.round(state.data.focus_level * 100)}% · 작업공간 ${focused.length}/4 · 백그라운드 ${running.length} · 리뷰 ${reviews.length} · ${new Date(state.data.generated * 1000).toLocaleTimeString()}`);
 }

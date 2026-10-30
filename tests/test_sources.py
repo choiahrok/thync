@@ -54,6 +54,20 @@ class GitHub(unittest.TestCase):
         self.assertEqual([(r["author"], r["state"]) for r in got["reviews"]], [("", "APPROVED"), ("mina", "CHANGES_REQUESTED")])
         self.assertEqual([t["path"] for t in got["threads"]], ["b.py", "a.py"])  # unresolved first
 
+    def test_graph_lists_reviews_others_left_on_my_prs(self):
+        at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 600))
+        pr = {"url": "https://github.com/o/r/pull/7", "number": 7, "title": "t", "updatedAt": at, "isDraft": False,
+              "repository": {"name": "r"}, "reviewDecision": None, "author": {"login": "me"},
+              "reviewRequests": {"nodes": []}, "latestReviews": {"nodes": [
+                  {"author": {"login": "me"}, "state": "COMMENTED", "submittedAt": at, "body": "self note"},
+                  {"author": {"login": "mina"}, "state": "CHANGES_REQUESTED", "submittedAt": at, "body": "<!-- x -->fix"}]}}
+        with mock.patch.multiple(graph, SESSIONS=False, SOURCES={"github"}), \
+                mock.patch.object(github, "my_commits", return_value=[]), \
+                mock.patch.object(github, "review_requests", return_value=[]), \
+                mock.patch.object(github, "sent_reviews", return_value=[pr]):
+            got = graph.build_graph(7)["received"]
+        self.assertEqual([(r["author"], r["state"], r["text"]) for r in got], [("mina", "CHANGES_REQUESTED", "fix")])
+
 
 class JiraMine(unittest.TestCase):
     def test_search_mine_reads_assigned_tickets(self):
