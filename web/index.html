@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>thync</title>
+  <style>
+    :root {
+      --bg: #0c0b0e; --panel: #141318; --line: #2a2830; --ink: #e8e6e0; --quiet: #8e8a82; --glow: #ffcf6b;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); }
+    body { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 100%; }
+    #stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    #brain { position: relative; flex: 1 1 58%; min-height: 0; }
+    #graph { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+    #hud { position: absolute; top: 14px; left: 16px; display: flex; gap: 12px; align-items: center;
+      font: 12px "JetBrains Mono", Menlo, monospace; letter-spacing: .08em; color: var(--quiet); }
+    #hud b { color: var(--ink); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 10px var(--glow);
+      animation: beat 1.2s ease-in-out infinite; }
+    @keyframes beat { 50% { transform: scale(1.6); opacity: .6; } }
+    #live { position: absolute; right: 16px; bottom: 12px; width: min(560px, calc(100% - 32px)); list-style: none;
+      margin: 0; padding: 0; font-size: 12px; pointer-events: auto; }
+    #live li { display: grid; grid-template-columns: 62px 150px 1fr; gap: 8px; padding: 3px 8px; border: 0;
+      border-left: 2px solid var(--line); border-radius: 0; background: rgba(12, 11, 14, .55); white-space: nowrap; }
+    #live li.prompt { border-left-color: #ffcf6b; } #live li.tool { border-left-color: #6be3ff; }
+    #live time { color: var(--quiet); font: 11px Menlo, monospace; }
+    #live b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; color: var(--quiet); }
+    #live span { overflow: hidden; text-overflow: ellipsis; }
+    #splitter { flex: 0 0 8px; cursor: row-resize; position: relative; touch-action: none; }
+    #splitter::before { content: ""; position: absolute; left: 50%; top: 2px; width: 44px; height: 4px; margin-left: -22px;
+      border-radius: 2px; background: var(--line); }
+    #splitter:hover::before, #splitter.dragging::before { background: #ffcf6b; }
+    #stage[data-mode="brain"] #splitter, #stage[data-mode="board"] #splitter { display: none; }
+    #stage.resizing { user-select: none; cursor: row-resize; }
+    #boardbar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 4px 16px 6px; border-top: 1px solid var(--line);
+      font-size: 11.5px; color: var(--quiet); }
+    #boardbar button { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; font: inherit;
+      font-size: 12px; padding: 3px 10px; cursor: pointer; }
+    #board-hint { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #boardbar .modes { display: flex; gap: 4px; }
+    #boardbar .modes button { color: var(--quiet); }
+    #boardbar .modes button.on { color: var(--ink); border-color: var(--quiet); }
+    #stage[data-mode="brain"] #board, #stage[data-mode="brain"] #board-hint, #stage[data-mode="brain"] #add-card { display: none; }
+    #stage[data-mode="board"] #brain { display: none; }
+    #stage[data-mode="board"] #board { flex: 1 1 auto; }
+    #stage[data-mode="board"] #boardbar { border-top: 0; }
+    #board { flex: 0 0 38%; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+      gap: 10px; padding: 4px 16px 14px; background: var(--bg); }
+    #board section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: flex;
+      flex-direction: column; min-height: 0; }
+    #board h3 { margin: 0; padding: 10px 12px; font-size: 12px; letter-spacing: .08em; color: var(--quiet); font-weight: 600;
+      border-bottom: 1px solid var(--line); }
+    #board h3 span { color: var(--ink); margin-left: 6px; }
+    #board section > div { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .card { border: 1px solid var(--line); border-left: 3px solid var(--quiet); border-radius: 6px; padding: 8px 10px;
+      background: #18171c; cursor: pointer; }
+    .card:hover { border-color: var(--quiet); }
+    .card .t { font-size: 13px; line-height: 1.4; }
+    .card .s { font-size: 11px; color: var(--quiet); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .card .tags i { font-style: normal; font-size: 10.5px; color: var(--quiet); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+    @media (max-width: 1100px) { #board { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-y: auto; } }
+    #board section.reflex { border-color: rgba(107, 227, 255, .35); }
+    #board section.reflex h3 { color: #6be3ff; }
+    #board section.over { border-color: #ffcf6b; background: #1d1b17; }
+    #board section[hidden] { display: none; }
+    .card[draggable="true"] { cursor: grab; }
+    .card.dragging { opacity: .4; }
+    .card .note.empty { display: none; }
+    .card:hover .note.empty { display: block; }
+    .card .note.empty::before { content: attr(data-placeholder); color: var(--quiet); font-style: italic; }
+    .card .note.editing { display: block; min-height: 3em; }
+    .card .t { cursor: text; }
+    .card .tags i.moved { cursor: pointer; }
+    .card .note { font-size: 11.5px; color: var(--ink); margin-top: 6px; white-space: pre-wrap; border-left: 2px solid var(--line); padding-left: 6px; }
+    .card .tags i.moved { color: #ffcf6b; border-color: rgba(255, 207, 107, .4); }
+    #help { position: absolute; bottom: 14px; left: 16px; font: 11px Menlo, monospace; color: var(--quiet); }
+    aside { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 16px; }
+    .seg { display: flex; gap: 4px; margin-bottom: 18px; }
+    .seg button { flex: 1; background: none; border: 1px solid var(--line); color: var(--quiet); border-radius: 6px;
+      padding: 6px 0; font: inherit; font-size: 13px; cursor: pointer; }
+    .seg button.on { color: var(--ink); border-color: var(--quiet); }
+    h2 { font-size: 11px; letter-spacing: .12em; color: var(--quiet); margin: 18px 0 8px; font-weight: 600; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { padding: 8px 10px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+    li:hover { background: #1c1b21; }
+    li.focus { border-color: rgba(255, 207, 107, .45); background: rgba(255, 207, 107, .07); }
+    li.running { border-color: rgba(107, 227, 255, .4); background: rgba(107, 227, 255, .06); }
+    li.review { border-color: rgba(255, 138, 112, .35); background: rgba(255, 138, 112, .05); }
+    li.sent { border-color: rgba(201, 167, 255, .35); background: rgba(201, 167, 255, .05); }
+    li.sent .main::before { content: "● "; color: #c9a7ff; }
+    li.focus .main::before, li.running .main::before, li.review .main::before { content: "● "; }
+    li.focus .main::before { color: #ffcf6b; } li.running .main::before { color: #6be3ff; } li.review .main::before { color: #ff8a70; }
+    li { position: relative; padding-right: 30px; }
+    button.info { position: absolute; top: 6px; right: 6px; background: none; border: 1px solid transparent; border-radius: 4px;
+      color: var(--quiet); font-size: 14px; line-height: 1; padding: 3px 5px; cursor: pointer; }
+    button.info:hover { color: var(--ink); border-color: var(--line); background: #24222a; }
+    .card { position: relative; padding-right: 30px; }
+    li.empty { color: var(--quiet); font-size: 12px; cursor: default; }
+    .toggle { display: block; font-size: 12px; color: var(--quiet); margin: -6px 0 12px; cursor: pointer; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--quiet); }
+    .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .main { font-size: 13px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .sub { font-size: 11px; color: var(--quiet); margin-top: 2px; }
+    #modal { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+      background: rgba(5, 5, 8, .6); padding: 16px; }
+    #modal[hidden] { display: none; }
+    #modal .box { width: min(560px, 100%); max-height: min(80vh, 720px); overflow-y: auto; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+    #modal header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    #modal h3 { flex: 1; margin: 0; font-size: 15px; line-height: 1.45; }
+    #modal-close { background: none; border: 0; color: var(--quiet); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+    #modal-close:hover { color: var(--ink); }
+    #detail div { display: grid; grid-template-columns: 84px 1fr; gap: 10px; font-size: 13px; padding: 5px 0;
+      border-top: 1px solid var(--line); }
+    #detail div:first-child { border-top: 0; }
+    #detail p { margin: 0 0 10px; font-size: 13px; line-height: 1.55; }
+    #detail fieldset.choice { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 12px; padding: 8px 12px 10px; }
+    #detail fieldset.choice legend { font-size: 12px; color: var(--quiet); padding: 0 4px; }
+    #detail fieldset.choice label { display: block; font-size: 13px; padding: 4px 0; cursor: pointer; }
+    #detail .actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 0; padding-top: 6px; }
+    #detail .actions button { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 6px;
+      font: inherit; font-size: 13px; padding: 6px 14px; cursor: pointer; }
+    #detail .actions button.primary { border-color: #6be3ff; color: #6be3ff; }
+    #detail .actions button:disabled { opacity: .5; cursor: default; }
+    #detail b { color: var(--quiet); font-weight: 500; }
+    #detail input { background: #0f0e12; border: 1px solid var(--line); border-radius: 4px; color: var(--ink);
+      font: inherit; padding: 4px 6px; min-width: 0; }
+    #detail input:focus { outline: none; border-color: #ffcf6b; }
+    #detail span, #detail a { white-space: pre-wrap; word-break: break-all; color: var(--ink); }
+    @media (max-width: 760px) {
+      body { grid-template-columns: 1fr; grid-template-rows: 60vh auto; }
+      aside { border-left: 0; border-top: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <main id="stage">
+    <div id="brain">
+      <canvas id="graph"></canvas>
+      <div id="hud"><span class="dot"></span><b>THYNC</b><span id="status">불러오는 중</span></div>
+      <ul id="live"></ul>
+      <div id="help">드래그 회전 · 스크롤 확대 · 노드 클릭 선택 · PR 노드를 맨 아래 줄기에 놓으면 리뷰 작업을 맡김 · 카드는 끌어서 옮기고 두 번 눌러 고침</div>
+    </div>
+    <div id="splitter" title="끌어서 칸반 높이 바꾸기 · 두 번 누르면 원래대로" aria-label="칸반 높이 조절" role="separator" aria-orientation="horizontal"></div>
+    <div id="boardbar"><span class="modes"><button data-mode="both">뇌 + 칸반</button><button data-mode="brain">뇌만</button><button data-mode="board">칸반만</button></span><span id="board-hint">끌어서 옮기기 · 제목이나 메모를 두 번 눌러 바로 고치기 · 카드 하나 = Markdown 파일 하나</span><button id="add-card">+ 카드</button></div>
+    <div id="board">
+      <section data-col="todo"><h3>Todo</h3><div></div></section>
+      <section data-col="doing"><h3>진행 중</h3><div></div></section>
+      <section data-col="background"><h3>백그라운드 진행 중</h3><div></div></section>
+      <section data-col="reflex" class="reflex"><h3>맡긴 일</h3><div></div></section>
+      <section data-col="done"><h3>완료</h3><div></div></section>
+    </div>
+  </main>
+  <aside>
+    <div class="seg">
+      <button data-profile="전체">전체</button>
+      <button data-profile="회사">회사</button>
+      <button data-profile="개인">개인</button>
+    </div>
+    <div class="seg" title="보여 줄 기간">
+      <button data-days="1">1일</button>
+      <button data-days="3">3일</button>
+      <button data-days="7">1주</button>
+      <button data-days="14">2주</button>
+      <button data-days="30">1달</button>
+    </div>
+    <label class="toggle"><input type="checkbox" id="show-all"> 지난 작업도 보기 (Backlog·완료 포함)</label>
+    <div class="legend"><span><i style="background:#ffcf6b"></i>내가 집중</span><span><i style="background:#6be3ff"></i>백그라운드</span><span><i style="background:#ff8a70"></i>리뷰 요청</span><span><i style="background:#c9a7ff"></i>보낸 리뷰</span><span><i style="background:#7fa7d6"></i>회사</span><span><i style="background:#8fd19a"></i>개인</span></div>
+    <h2>내가 집중하는 일 · 최대 4</h2>
+    <ul id="focus"></ul>
+    <h2>백그라운드</h2>
+    <ul id="running"></ul>
+    <h2>리뷰 요청</h2>
+    <ul id="reviews"></ul>
+    <h2>보낸 리뷰</h2>
+    <ul id="sent"></ul>
+  </aside>
+  <div id="modal" hidden>
+    <div class="box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <header><h3 id="modal-title"></h3><button id="modal-close" aria-label="닫기">×</button></header>
+      <div id="detail"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

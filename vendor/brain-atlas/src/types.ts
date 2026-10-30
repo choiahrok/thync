@@ -1,0 +1,101 @@
+export const CANONICAL_KINDS = [
+  "person",
+  "project",
+  "concept",
+  "decision",
+  "question",
+  "tool",
+  "workThread",
+  "dailyNote",
+  "source",
+  "repo",
+  "incident",
+  "organization",
+  "index",
+  "unknown"
+] as const;
+
+export type NodeKind = (typeof CANONICAL_KINDS)[number];
+
+export type LobeName =
+  | "frontal"
+  | "parietal"
+  | "temporal"
+  | "occipital"
+  | "cerebellum"
+  | "stem";
+
+export type ClassificationSource = "frontmatter" | "tag" | "folder" | "filename" | "linkBehavior" | "default";
+export type LobeOverrideSource = "note" | "frontmatter" | "tag" | "folder";
+
+export interface BrainNode {
+  id: string;
+  name: string;
+  title: string;
+  kind: NodeKind;
+  kindLabel: string;
+  status: "active" | "dormantRelevant" | "archived";
+  hub: boolean;
+  degree: number;
+  color: string;
+  path: string;
+  classificationSource: ClassificationSource;
+  lobeOverrideSource?: LobeOverrideSource;
+  /** thync: 0..1, the more active the work, the larger and brighter the node pulses */
+  glow?: number;
+  _3dLobe?: Vec3;
+  _lobeName?: LobeName;
+}
+
+export interface BrainEdge {
+  a: string;
+  b: string;
+}
+
+export interface BrainGraph {
+  nodes: BrainNode[];
+  edges: BrainEdge[];
+  idx: Record<string, BrainNode>;
+  adj: Record<string, string[]>;
+  KIND_LABEL: Record<string, string>;
+  activePalette: BrainPalette;
+  activePaletteName: string;
+  CHAOS: BrainChaos;
+  /** thync: per-lobe title and subtitle shown instead of the anatomical name */
+  lobeTitles?: Partial<Record<LobeName, { title: string; sub: string }>>;
+  /** thync: titles drawn where each work unit's nodes gather; replaces lobe labels when set */
+  clusterTitles?: { title: string; sub: string; at: Vec3; color: string }[];
+}
+
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ProjectedPoint {
+  sx: number;
+  sy: number;
+  z: number;
+  scale: number;
+  depth: number;
+}
+
+export interface BrainPalette {
+  label: string;
+  bg: string;
+  bgFar: string;
+  fg: string;
+  hud: string;
+  chroma: number;
+  kinds: Record<string, string>;
+}
+
+export interface BrainChaos {
+  wobbleAmp: number;
+  wobbleSpeed: number;
+  halo: number;
+  bloom: number;
+  blob: number;
+  jitter: number;
+}

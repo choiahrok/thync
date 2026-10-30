@@ -1,0 +1,5 @@
+__pycache__/
+node_modules/
+web/app.js
+vendor/brain-atlas/demo/brain-atlas-demo.js
+.claude/

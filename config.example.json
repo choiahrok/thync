@@ -1,0 +1,10 @@
+{
+  "sources": ["github", "jira", "notion"],
+  "company_roots": ["~/work"],
+  "jira_browse_url": "https://example.atlassian.net/browse/",
+  "jira_email": "me@example.com",
+  "notion_user_id": "",
+  "cards_dir": "~/.thync/cards",
+  "port": 8765,
+  "reflex_skills": {"sent": "pr-review-watch"}
+}
