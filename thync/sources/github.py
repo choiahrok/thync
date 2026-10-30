@@ -5,6 +5,7 @@ requests never wait on GitHub.
 """
 import functools
 import json
+import re
 import subprocess
 import time
 
@@ -107,6 +108,47 @@ def my_commits(now: float) -> list[dict]:
         except (subprocess.SubprocessError, OSError, json.JSONDecodeError, KeyError, TypeError):
             _commits = (now, _commits[1])
     return _commits[1]
+
+
+REVIEWS_QUERY = """query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) {
+  pullRequest(number: $number) {
+    reviews(last: 30) { nodes { author { login } state body submittedAt url } }
+    reviewThreads(first: 100) { nodes { isResolved isOutdated path line
+      comments(first: 20) { nodes { author { login } body createdAt url } } } } } } }"""
+_pr_reviews: dict[str, tuple[float, dict]] = {}
+
+
+def _text(body: str | None) -> str:
+    """Comment body without HTML comments, which bots use for hidden markers."""
+    return re.sub(r"<!--.*?-->", "", body or "", flags=re.S).strip()
+
+
+def parse_reviews(pr: dict, me: str) -> dict:
+    """Reviews others left on a PR, and its comment threads with the unresolved ones first."""
+    reviews = [{"author": (r.get("author") or {}).get("login", ""), "state": r["state"], "body": _text(r.get("body")),
+                "at": r.get("submittedAt") or "", "url": r.get("url", "")}
+               for r in pr["reviews"]["nodes"]
+               if r["state"] != "PENDING" and (r.get("author") or {}).get("login", "") != me
+               and (_text(r.get("body")) or r["state"] in ("APPROVED", "CHANGES_REQUESTED"))]
+    threads = [{"path": t.get("path") or "", "line": t.get("line"), "resolved": t["isResolved"], "outdated": t["isOutdated"],
+                "comments": [{"author": (c.get("author") or {}).get("login", ""), "body": _text(c.get("body")),
+                              "at": c.get("createdAt") or "", "url": c.get("url", "")} for c in t["comments"]["nodes"]]}
+               for t in pr["reviewThreads"]["nodes"]]
+    threads.sort(key=lambda t: t["resolved"])
+    return {"reviews": reviews[::-1], "threads": threads}
+
+
+def pr_reviews(url: str, now: float) -> dict:
+    """Reviews and threads of one PR, fetched when its details open and reused for a minute."""
+    seen, data = _pr_reviews.get(url, (0.0, None))
+    if data is None or now - seen > 60:
+        owner, name, _, number = url.split("/")[3:7]
+        out = subprocess.run(["gh", "api", "graphql", "-f", f"query={REVIEWS_QUERY}", "-f", f"owner={owner}",
+                              "-f", f"name={name}", "-F", f"number={number}"],
+                             capture_output=True, text=True, timeout=20, check=True).stdout
+        data = parse_reviews(json.loads(out)["data"]["repository"]["pullRequest"], login())
+        _pr_reviews[url] = (now, data)
+    return data
 
 
 def review_state(pr: dict) -> str:

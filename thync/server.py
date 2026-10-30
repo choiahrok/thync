@@ -6,6 +6,7 @@ machine other local users can reach 127.0.0.1 too. The static page holds no data
 import hmac
 import json
 import os
+import re
 import secrets
 import subprocess
 import threading
@@ -98,6 +99,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def get(self):
         url = urlparse(self.path)
+        if url.path == "/reviews":
+            self.get_reviews(parse_qs(url.query).get("url", [""])[0])
+            return
         if url.path != "/graph.json":
             super().do_GET()
             return
@@ -125,6 +129,17 @@ class Handler(SimpleHTTPRequestHandler):
             self.fail(400)
         except (OSError, subprocess.SubprocessError, RuntimeError):
             self.fail(500)
+
+    def get_reviews(self, pr: str):
+        if not self.authorized():
+            return
+        if not re.fullmatch(r"https://github\.com/[\w.-]+/[\w.-]+/pull/\d+", pr):
+            self.send_json(400, {"message": "PR 주소가 아니에요"})
+            return
+        try:
+            self.send_json(200, github.pr_reviews(pr, time.time()))
+        except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError):
+            self.send_json(502, {"message": "GitHub 에서 리뷰를 가져오지 못했어요"})
 
     def post_reflex(self):
         if not HANDOFF:

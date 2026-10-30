@@ -157,6 +157,17 @@ flowchart TD
 | `jira_status` | Jira 상태 |
 | `auto_name` | 사용자가 바꾸기 전 자동 이름 |
 
+## `GET /reviews?url=<PR 주소>`
+
+내 PR 의 상세 창을 열 때 화면이 한 번 부릅니다. `X-Thync-Token`이 필요하고, 주소는 `https://github.com/<owner>/<repo>/pull/<번호>` 형식만 받습니다. `gh` GraphQL 한 번으로 그 PR 의 리뷰와 코멘트 스레드를 가져와 1분 동안 재사용합니다.
+
+| 필드 | 내용 |
+| --- | --- |
+| `reviews[]` | 다른 사람이 남긴 리뷰, 최신순: `author`, `state`(`APPROVED`·`CHANGES_REQUESTED`·`COMMENTED`·`DISMISSED`), `body`, `at`, `url`. 내 리뷰와 본문 없는 코멘트는 뺍니다 |
+| `threads[]` | 코멘트 스레드, 해결 안 된 것 먼저: `path`, `line`, `resolved`, `outdated`, `comments[]`(`author`, `body`, `at`, `url`) |
+
+본문의 HTML 주석(`<!-- ... -->`)은 봇이 숨겨 둔 표시라 지웁니다. 화면은 본문을 HTML 로 해석하지 않고 글자 그대로 보여 줍니다. GitHub 에서 가져오지 못하면 `502`, 주소 형식이 틀리면 `400`입니다.
+
 ## 쓰기 요청
 
 모두 `X-Thync-Token`이 필요하고 JSON 객체 본문을 받습니다. 아래 `?` 표시는 선택 필드입니다.

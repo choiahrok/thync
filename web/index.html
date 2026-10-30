@@ -113,7 +113,7 @@
     #modal { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
       background: rgba(5, 5, 8, .6); padding: 16px; }
     #modal[hidden] { display: none; }
-    #modal .box { width: min(560px, 100%); max-height: min(80vh, 720px); overflow-y: auto; background: var(--panel);
+    #modal .box { width: min(640px, 100%); max-height: min(80vh, 720px); overflow-y: auto; background: var(--panel);
       border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
     #modal header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
     #modal h3 { flex: 1; margin: 0; font-size: 15px; line-height: 1.45; }
@@ -126,6 +126,14 @@
     #detail fieldset.choice { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 12px; padding: 8px 12px 10px; }
     #detail fieldset.choice legend { font-size: 12px; color: var(--quiet); padding: 0 4px; }
     #detail fieldset.choice label { display: block; font-size: 13px; padding: 4px 0; cursor: pointer; }
+    #detail .reviews { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 4px; }
+    #detail .reviews h4 { margin: 12px 0 6px; font-size: 12px; font-weight: 600; color: var(--quiet); letter-spacing: .04em; }
+    #detail .reviews .quiet { color: var(--quiet); font-size: 12px; }
+    #detail .review { border-left: 2px solid var(--line); padding: 2px 0 2px 10px; margin: 0 0 10px; }
+    #detail .review header { font-size: 12px; color: var(--quiet); margin-bottom: 4px; }
+    #detail .review header a { color: var(--quiet); }
+    #detail .review header a:hover { color: var(--glow); }
+    #detail .review p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 220px; overflow-y: auto; }
     #detail .actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 0; padding-top: 6px; }
     #detail .actions button { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 6px;
       font: inherit; font-size: 13px; padding: 6px 14px; cursor: pointer; }

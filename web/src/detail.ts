@@ -1,8 +1,9 @@
 // The modal: node details (opened from the 상세 buttons or by clicking an already focused node) and the
 // hand-off confirmation in reflex.ts. Close with ×, a click outside, or Esc.
-import { post } from "./api.ts";
+import { api, post } from "./api.ts";
 import { refresh } from "./main.ts";
 import { state } from "./state.ts";
+import { ago } from "./style.ts";
 
 export const modalEl = document.querySelector<HTMLDivElement>("#modal")!;
 export const modalTitle = document.querySelector<HTMLHeadingElement>("#modal-title")!;
@@ -99,4 +100,53 @@ function showDetail(id: string): void {
     row.append(Object.assign(document.createElement("b"), { textContent: k }), vv);
     return row;
   }));
+  if (n.roles.includes("sent") && typeof n.detail.url === "string") void showReviews(id, n.detail.url);
+}
+
+const REVIEW_STATE: Record<string, string> = {
+  APPROVED: "승인", CHANGES_REQUESTED: "수정 요청", COMMENTED: "코멘트", DISMISSED: "철회됨" };
+
+interface Comment { author: string; body: string; at: string; url: string }
+interface Thread { path: string; line: number | null; resolved: boolean; outdated: boolean; comments: Comment[] }
+interface Reviews { reviews: (Comment & { state: string })[]; threads: Thread[] }
+
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = "") =>
+  Object.assign(document.createElement(tag), { className, textContent: text });
+
+function entry(head: string, body: string, url: string): HTMLElement {
+  const item = el("article", "review");
+  const h = el("header", "", head);
+  if (/^https?:\/\//.test(url)) {
+    const a = el("a", "", "GitHub 에서 보기");
+    a.href = url;
+    a.onclick = (e) => { if (!e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); openOnce(url); } };
+    h.append(" · ", a);
+  }
+  item.append(h);
+  if (body.trim()) item.append(el("p", "", body.length > 800 ? `${body.slice(0, 800)}…` : body));
+  return item;
+}
+
+// Reviews others left on my PR, fetched when its details open. Text is shown as plain text, never as HTML.
+async function showReviews(id: string, url: string): Promise<void> {
+  const box = el("section", "reviews");
+  box.append(el("h4", "", "받은 리뷰"), el("p", "quiet", "불러오는 중…"));
+  detailBox.append(box);
+  const res = await api(`/reviews?url=${encodeURIComponent(url)}`).catch(() => null);
+  if (shownId !== id) return; // another node was opened meanwhile
+  const data: Reviews | null = res?.ok ? await res.json() : null;
+  box.lastElementChild!.remove();
+  if (!data) { box.append(el("p", "quiet", "리뷰를 가져오지 못했어요")); return; }
+  const open = data.threads.filter((t) => !t.resolved);
+  if (!data.reviews.length && !data.threads.length) box.append(el("p", "quiet", "아직 받은 리뷰가 없어요"));
+  for (const r of data.reviews) box.append(entry(`${r.author} · ${REVIEW_STATE[r.state] ?? r.state} · ${ago(Date.parse(r.at) / 1000)}`, r.body, r.url));
+  if (open.length) box.append(el("h4", "", `해결 안 된 코멘트 ${open.length}`));
+  for (const t of open) {
+    const [first, ...replies] = t.comments;
+    if (!first) continue;
+    const where = `${t.path}${t.line ? `:${t.line}` : ""}${t.outdated ? " (바뀐 코드)" : ""}`;
+    box.append(entry(`${where} · ${first.author}${replies.length ? ` · 답글 ${replies.length}` : ""}`, first.body, first.url));
+  }
+  const done = data.threads.length - open.length;
+  if (done) box.append(el("p", "quiet", `해결된 코멘트 ${done}개는 접어 두었어요`));
 }

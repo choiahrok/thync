@@ -40,6 +40,20 @@ class GitHub(unittest.TestCase):
         self.assertEqual([(p["branch"], p["head"], p["at"]) for p in got], [("abc-7-audit", "b", "2026-10-29T02:00:00Z")])
         self.assertEqual(got[0]["url"], "https://github.com/o/r/tree/abc-7-audit")
 
+    def test_received_reviews_skip_mine_and_empty_comments(self):
+        pr = {"reviews": {"nodes": [
+                  {"author": {"login": "mina"}, "state": "CHANGES_REQUESTED", "body": "", "submittedAt": "t1", "url": "u1"},
+                  {"author": {"login": "me"}, "state": "COMMENTED", "body": "my reply", "submittedAt": "t2", "url": "u2"},
+                  {"author": {"login": "jun"}, "state": "COMMENTED", "body": "<!-- bot: approve -->", "submittedAt": "t3", "url": "u3"},
+                  {"author": None, "state": "APPROVED", "body": "", "submittedAt": "t4", "url": "u4"}]},
+              "reviewThreads": {"nodes": [
+                  {"isResolved": True, "isOutdated": False, "path": "a.py", "line": 1, "comments": {"nodes": []}},
+                  {"isResolved": False, "isOutdated": True, "path": "b.py", "line": None,
+                   "comments": {"nodes": [{"author": {"login": "mina"}, "body": "why?", "createdAt": "t", "url": "u"}]}}]}}
+        got = github.parse_reviews(pr, "me")
+        self.assertEqual([(r["author"], r["state"]) for r in got["reviews"]], [("", "APPROVED"), ("mina", "CHANGES_REQUESTED")])
+        self.assertEqual([t["path"] for t in got["threads"]], ["b.py", "a.py"])  # unresolved first
+
 
 class JiraMine(unittest.TestCase):
     def test_search_mine_reads_assigned_tickets(self):
