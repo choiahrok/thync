@@ -54,6 +54,18 @@ function nameField(label: string, id: string, current: string, auto: string, isC
   return row;
 }
 
+// A link opens one tab per URL: clicking it again brings that tab forward instead of opening another.
+// ponytail: only tabs opened since this page loaded are remembered; after a reload the named window is reused instead.
+const openedTabs = new Map<string, Window>();
+function openOnce(url: string): void {
+  const prev = openedTabs.get(url);
+  if (prev && !prev.closed) { prev.focus(); return; }
+  const w = window.open(url, `thync:${url}`);
+  if (!w) return;
+  w.opener = null; // the opened page must not reach back into thync
+  openedTabs.set(url, w);
+}
+
 export function openDetail(id: string): void {
   shownId = null;
   showDetail(id);
@@ -80,7 +92,10 @@ function showDetail(id: string): void {
     const row = document.createElement("div");
     const vv = document.createElement(k === "링크" ? "a" : "span");
     vv.textContent = v;
-    if (vv instanceof HTMLAnchorElement && /^https?:\/\//.test(v)) { vv.href = v; vv.target = "_blank"; vv.rel = "noopener"; }
+    if (vv instanceof HTMLAnchorElement && /^https?:\/\//.test(v)) {
+      vv.href = v; // kept so middle-click and "copy link" still work
+      vv.onclick = (e) => { if (!e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); openOnce(v); } };
+    }
     row.append(Object.assign(document.createElement("b"), { textContent: k }), vv);
     return row;
   }));
