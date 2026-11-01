@@ -16,7 +16,7 @@ thync는 여러 서비스에 흩어진 활동을 작업 단위로 묶습니다. 
 
 ## 어떻게 사용하나요
 
-1. **활동을 모읍니다.** GitHub 커밋·리뷰 요청·내 PR, 나에게 배정된 Jira 티켓, 최근 수정한 Notion 페이지를 읽습니다. Claude Code 세션 로그도 설정에 따라 읽습니다.
+1. **활동을 모읍니다.** GitHub 커밋·리뷰 요청·내 PR, 나에게 배정된 Jira 티켓, 최근 수정한 Notion 페이지를 읽습니다. Claude Code와 OpenAI Codex CLI 세션 로그도 설정에 따라 읽습니다.
 2. **관련 활동을 작업 단위로 묶습니다.** 같은 Jira 에픽·티켓, 브랜치 또는 저장소에 속한 활동을 연결합니다.
 3. **상태를 확인하고 작업을 이어갑니다.** 사용자는 그래프와 칸반을 보고, 에이전트는 `thync_now`로 현재 맥락을 조회합니다. 필요한 PR 작업은 확인 창을 거쳐 Claude에게 맡깁니다.
 
@@ -34,7 +34,7 @@ thync는 여러 서비스에 흩어진 활동을 작업 단위로 묶습니다. 
 
 ### 1. 준비하고 실행합니다
 
-Python 3.10 이상, 화면 빌드용 Node.js 18 이상, 인증된 [GitHub CLI](https://cli.github.com/)가 필요합니다. GitHub CLI는 `gh auth login`으로 인증합니다. Python은 표준 라이브러리만 사용하며, Jira·Notion·Claude Code 연동은 선택 사항입니다.
+Python 3.10 이상, 화면 빌드용 Node.js 18 이상, 인증된 [GitHub CLI](https://cli.github.com/)가 필요합니다. GitHub CLI는 `gh auth login`으로 인증합니다. Python은 표준 라이브러리만 사용하며, Jira·Notion·Claude Code·Codex 연동은 선택 사항입니다.
 
 ```bash
 git clone https://github.com/choiahrok/thync.git
@@ -56,7 +56,7 @@ cat "${THYNC_HOME:-$HOME/.thync}/token"
 
 ### 3. 필요한 출처와 에이전트를 연결합니다
 
-설정 파일이 없으면 GitHub·Jira·Notion·Claude Code 네 출처가 기본으로 활성화됩니다. Jira와 Notion의 API 수집에는 별도 인증 설정이 필요합니다. Claude Code 세션 로그를 읽지 않으려면 `sources`에서 `claude_code`를 제외합니다. [예제 설정](config.example.json)은 세션 로그를 제외한 구성입니다.
+설정 파일이 없으면 GitHub·Jira·Notion·Claude Code·Codex 다섯 출처가 기본으로 활성화됩니다. Jira와 Notion의 API 수집에는 별도 인증 설정이 필요합니다. 세션 로그를 읽지 않으려면 `sources`에서 `claude_code`와 `codex`를 제외합니다. [예제 설정](config.example.json)은 세션 로그를 제외한 구성입니다.
 
 - Jira·Notion을 연결하거나 수집할 출처를 바꾸려면 [설정 안내](docs/configuration.md)를 확인합니다.
 - 에이전트가 현재 맥락을 조회하게 하려면 [MCP 등록 방법](docs/usage.md#에이전트에서-지금-하는-일-묻기-mcp)을 확인합니다.

@@ -12,6 +12,7 @@ HOME = Path.home()
 STATE_DIR = Path(os.environ.get("THYNC_HOME", HOME / ".thync")).expanduser()
 CONFIG_FILE = STATE_DIR / "config.json"
 CLAUDE_LOGS = HOME / ".claude" / "projects"
+CODEX_LOGS = HOME / ".codex" / "sessions"
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 
@@ -31,12 +32,13 @@ JIRA_EMAIL = CONFIG.get("jira_email", "")  # with an API token, turns on fetchin
 CARDS_DIR = Path(CONFIG.get("cards_dir", STATE_DIR / "cards")).expanduser()
 # Claude Code skills started when a PR is handed off: my PR -> "sent", someone else's PR -> "review".
 REFLEX_SKILL = {"sent": "pr-review-watch", **CONFIG.get("reflex_skills", {})}
-# Where work comes from: "claude_code" (session logs), "github" (reviews, my PRs, my commits), "jira", "notion".
-SOURCES = set(CONFIG.get("sources", ["claude_code", "github", "jira", "notion"]))
-SESSIONS = "claude_code" in SOURCES
+# Where work comes from: "claude_code" and "codex" (session logs), "github" (reviews, my PRs, my commits), "jira",
+# "notion".
+SOURCES = set(CONFIG.get("sources", ["claude_code", "codex", "github", "jira", "notion"]))
+SESSIONS = bool({"claude_code", "codex"} & SOURCES)
 NOTION_USER = CONFIG.get("notion_user_id", "")  # only pages last edited by this Notion user; empty = every page
 # Handing PRs off to Claude needs the claude CLI and the session logs it writes.
-HANDOFF = SESSIONS and shutil.which("claude") is not None
+HANDOFF = "claude_code" in SOURCES and shutil.which("claude") is not None
 HOST = "127.0.0.1"
 PORT = int(CONFIG.get("port", 8765))
 

@@ -9,7 +9,7 @@ import threading
 from collections import deque
 from pathlib import Path
 
-from ..config import CLAUDE_LOGS, HOME
+from ..config import CLAUDE_LOGS, CODEX_LOGS, HOME, SOURCES
 from ..util import epoch
 
 FILE_TOOLS = {"Edit", "Write", "NotebookEdit", "MultiEdit"}
@@ -32,6 +32,8 @@ def describe_tool(block: dict) -> str:
 
 class Session:
     """One session log, read incrementally."""
+
+    source = "claude_code"
 
     def __init__(self, path: Path):
         self.path, self.id, self.offset = path, path.stem, 0
@@ -113,10 +115,13 @@ def load_sessions(now: float, window: float) -> list[tuple[Session, float, int]]
 
 
 def _load_sessions(now: float, window: float) -> list[tuple[Session, float, int]]:
+    from .codex import CodexSession  # codex.py subclasses Session
+    logs = [(p, Session) for p in CLAUDE_LOGS.glob("*/*.jsonl")] if "claude_code" in SOURCES else []
+    logs += [(p, CodexSession) for p in CODEX_LOGS.glob("*/*/*/*.jsonl")] if "codex" in SOURCES else []
     out = []
-    for path in CLAUDE_LOGS.glob("*/*.jsonl"):
+    for path, cls in logs:
         try:
-            item = _load_one(path, now, window)
+            item = _load_one(path, now, window, cls)
         except (OSError, ValueError):  # a log deleted or unreadable mid-scan
             continue
         if item:
@@ -124,14 +129,14 @@ def _load_sessions(now: float, window: float) -> list[tuple[Session, float, int]
     return out
 
 
-def _load_one(path: Path, now: float, window: float) -> tuple[Session, float, int] | None:
+def _load_one(path: Path, now: float, window: float, cls=Session) -> tuple[Session, float, int] | None:
     mtime = path.stat().st_mtime
     if now - mtime > window:
         return None
     key = str(path)
     seen_mtime, s = _sessions.get(key, (None, None))
     if s is None:
-        s = Session(path)
+        s = cls(path)
     if seen_mtime != mtime:
         s.update()
         _sessions[key] = (mtime, s)

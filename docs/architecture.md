@@ -19,7 +19,7 @@ thync는 Python 로컬 서버와 TypeScript 웹 화면으로 나뉩니다. Pytho
 
 ```mermaid
 flowchart TD
-    Claude["Claude Code 세션 로그: 선택"] --> Graph["graph.build_graph()"]
+    Claude["Claude Code·Codex 세션 로그: 선택"] --> Graph["graph.build_graph()"]
     GitHub["GitHub: gh 조회와 캐시"] --> Graph
     Jira["Jira API → jira.json"] --> Graph
     Notion["Notion 검색 API와 캐시"] --> Graph
@@ -35,7 +35,7 @@ flowchart TD
     Write --> Reflex["reflex.py · review.py: PR 위임"]
 ```
 
-설정과 저장 파일은 기본 `~/.thync/`에 둡니다. 세션 로그는 `~/.claude/projects/` 아래의 JSONL 파일에서 읽습니다. 외부 수집 주기는 [설정 안내](configuration.md#수집-주기와-범위)에 정리했습니다.
+설정과 저장 파일은 기본 `~/.thync/`에 둡니다. 세션 로그는 `~/.claude/projects/`(Claude Code)와 `~/.codex/sessions/`(Codex) 아래의 JSONL 파일에서 읽습니다. 외부 수집 주기는 [설정 안내](configuration.md#수집-주기와-범위)에 정리했습니다.
 
 ## 작업 단위
 
@@ -54,7 +54,7 @@ flowchart TD
 
 | 출처 | 노드 | `last_at` |
 | --- | --- | --- |
-| Claude Code 세션 | `session:<id>` | 마지막 프롬프트 |
+| Claude Code·Codex 세션 | `session:<id>` | 마지막 프롬프트 |
 | 기본 브랜치가 아닌 브랜치의 커밋·push | `branch:<repo>:<branch>` | 마지막 push |
 | 기본 브랜치 커밋 | 메시지의 Jira 티켓, 없으면 `repo:<repo>` | 커밋 시각 |
 | 나에게 배정된 티켓 | `jira:<KEY>` | 티켓 `updated` |
@@ -76,7 +76,8 @@ flowchart TD
 | `config.py` | 경로(`THYNC_HOME`), `config.json` 읽기, 출처 선택(`SOURCES`), PR 맡기기 가능 여부(`HANDOFF`), 시간 창과 모델 상수 |
 | `util.py` | 시각 변환, JSON 읽기·원자적 쓰기 |
 | `store.py` | `~/.thync`의 파일: 토큰, 바꾼 이름, 칸반 카드(Markdown), 맡긴 일 기록 |
-| `sources/claude_code.py` | Claude Code 세션 로그를 새로 붙은 줄만 이어 읽습니다 |
+| `sources/claude_code.py` | Claude Code 세션 로그를 새로 붙은 줄만 이어 읽습니다. Codex 로그도 같은 방식으로 읽습니다 |
+| `sources/codex.py` | Codex CLI 세션 로그의 한 줄을 해석합니다. 사용자 메시지는 프롬프트, 도구 호출은 활동으로 기록합니다 |
 | `sources/github.py` | `gh`로 리뷰 요청, 내 PR, 내 커밋을 조회합니다. 커밋은 `search/commits`(`author:@me`, 기본 브랜치만 검색 대상)와 내 PushEvent(브랜치별 마지막 push, 그 head 커밋 메시지)를 합칩니다. 백그라운드 스레드는 1분마다 갱신을 시도하고 결과를 기본 120초 동안 재사용합니다 |
 | `sources/jira.py` | `jira.json`의 티켓 요약과 에픽, 브랜치·제목에서 Jira 키 찾기. 설정하면 백그라운드 스레드가 그래프에 나온 키와 나에게 배정된 티켓(`/rest/api/3/search/jql`)을 Jira REST API로 받아 `jira.json`을 갱신하고, 배정된 티켓에 `mine: true`를 기록합니다 |
 | `sources/notion.py` | Notion API `POST /v1/search`로 최근에 고친 페이지를 받습니다. 토큰이 있을 때 백그라운드 스레드가 1분마다 갱신을 시도하고 결과를 기본 120초 동안 재사용합니다 |
@@ -131,7 +132,7 @@ flowchart TD
 
 | `kind` | thync에서의 의미 |
 | --- | --- |
-| `workThread` | Claude Code 세션 |
+| `workThread` | Claude Code·Codex 세션. `detail.source`로 구분합니다(`claude_code`, `codex`) |
 | `repo` | 저장소 |
 | `tool` | 브랜치 |
 | `project` | Jira 티켓 |

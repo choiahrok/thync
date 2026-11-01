@@ -116,7 +116,7 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         last_prompt_at = epoch(s.prompts[-1][0])
         # A session thync started for a handed-off PR begins with '/<skill> <pr url>'.
         first = s.prompts[0][1].split()
-        reflex_url = (first[1] if len(first) > 1 and first[0].lstrip("/") in REFLEX_SKILL.values()
+        reflex_url = (first[1] if s.source == "claude_code" and len(first) > 1 and first[0].lstrip("/") in REFLEX_SKILL.values()
                       and first[1] in reflexes else "")
         # Background: Claude is working and I have not prompted for BACKGROUND_SEC.
         running = bool((claude_working and now - last_prompt_at > BACKGROUND_SEC)
@@ -134,7 +134,7 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         unit(ukey, uname, title, profile, last, keys, glow, running, session=True)
 
         sid = node(f"session:{s.id}", title, "workThread", profile, glow, roles,
-                   kind_label="작업 세션", cwd=s.cwd, branch=s.branch, updated=int(last), working=running,
+                   kind_label="작업 세션", source=s.source, cwd=s.cwd, branch=s.branch, updated=int(last), working=running,
                    focus_prompts=len(recent_prompts), subagents=subs, claude_working=claude_working,
                    last_at=last_prompt_at, act=model.retention(age), reflex=reflex_url,
                    last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey)
