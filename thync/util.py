@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 from datetime import datetime
@@ -32,6 +33,8 @@ def write_text(path: Path, text: str) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
+        if path.exists():  # mkstemp makes 0600; keep the mode a vault or sync tool may rely on
+            os.chmod(tmp, stat.S_IMODE(path.stat().st_mode))
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)

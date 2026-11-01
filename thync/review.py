@@ -109,9 +109,10 @@ def review(url: str, record: dict) -> None:
     try:
         pr = json.loads(gh("api", f"repos/{slug}/pulls/{number}", "--jq",
                            "{title, body, author: .user.login, base: .base.ref, head: .head.ref, sha: .head.sha}"))
-        if pr["sha"] == record.get("reviewed_sha"):
+        done = f"{pr['sha']}:{record['approve']}"  # asking for approve after a plain review is a new request
+        if done == record.get("reviewed"):
             # Re-dropping the same PR would post the same review twice; a new push gets a new review.
-            save_reflex(url, {**record, "status": "same", "sha": pr["sha"], "finished": int(time.time())})
+            save_reflex(url, {**record, "status": "same", "finished": int(time.time())})
             return
         diff = gh("pr", "diff", url)
         truncated = len(diff.encode()) > MAX_DIFF
@@ -125,7 +126,7 @@ def review(url: str, record: dict) -> None:
         payload["commit_id"] = pr["sha"]
         gh("api", f"repos/{slug}/pulls/{number}/reviews", "--input", "-", stdin=json.dumps(payload))
         status = "approved" if payload["event"] == "APPROVE" else "posted"
-        save_reflex(url, {**record, "status": status, "sha": pr["sha"], "finished": int(time.time())})
+        save_reflex(url, {**record, "status": status, "reviewed": done, "finished": int(time.time())})
     except Exception as e:  # noqa: BLE001 — whatever failed, the card must stop saying "running"
         detail = (getattr(e, "stderr", None) or getattr(e, "stdout", None) or e.__class__.__name__).strip()[-200:]
         save_reflex(url, {**record, "status": "failed", "error": detail, "finished": int(time.time())})
@@ -140,7 +141,7 @@ def start_review(url: str, approve: bool) -> tuple[int, str]:
         if old.get("status") == "running" and time.time() - old.get("started", 0) < CLAUDE_TIMEOUT + 600:
             return 409, "이미 리뷰하고 있어요"
         record = {"kind": "review", "skill": SKILL, "approve": approve, "status": "running", "started": int(time.time()),
-                  "reviewed_sha": old.get("sha", "") if old.get("status") in ("posted", "approved") else ""}
+                  "reviewed": old.get("reviewed", "")}  # carried across runs, so a failed or skipped run keeps it
         save_reflex(url, record)
     threading.Thread(target=review, args=(url, record), daemon=True).start()
     return 202, f"리뷰를 시작했어요{' (지적이 없으면 approve)' if approve else ''}. 끝나면 '맡긴 일' 카드에 결과가 보여요"

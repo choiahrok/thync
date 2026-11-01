@@ -53,9 +53,24 @@ class FixesTest(unittest.TestCase):
 
         saved = {}
         with mock.patch.object(review, "gh", gh), mock.patch.object(review, "save_reflex", lambda u, r: saved.update(r)):
-            review.review("https://github.com/o/r/pull/1", {"approve": False, "reviewed_sha": "abc"})
-        self.assertEqual(saved["status"], "same")
+            review.review("https://github.com/o/r/pull/1", {"approve": False, "reviewed": "abc:False"})
+        self.assertEqual((saved["status"], saved["reviewed"]), ("same", "abc:False"))  # kept for the next drop
         self.assertEqual(calls, [("api", "repos/o/r/pulls/1")])  # no diff fetched, nothing posted
+
+    def test_reviewed_mark_survives_restarts_of_the_record(self):
+        with mock.patch.object(review, "threading") as th, \
+                mock.patch.object(review, "load_reflexes", return_value={"u": {"status": "failed", "reviewed": "abc:False"}}), \
+                mock.patch.object(review, "save_reflex"):
+            review.start_review("u", True)
+        self.assertEqual(th.Thread.call_args.kwargs["args"][1]["reviewed"], "abc:False")
+
+    def test_write_text_keeps_the_existing_mode(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d, "card.md")
+            path.write_text("old")
+            os.chmod(path, 0o644)
+            util.write_text(path, "new")
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
 
     def test_jira_search_follows_next_page(self):
         pages = [{"issues": [{"key": "A-1", "fields": {"summary": "s", "status": {"name": "x"}}}], "nextPageToken": "p2",
