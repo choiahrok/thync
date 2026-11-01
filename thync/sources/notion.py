@@ -9,6 +9,7 @@ import time
 import urllib.request
 
 from ..config import NOTION_USER, REVIEW_TTL_SEC, STATE_DIR
+from ..util import read_secret
 from .jira import _open
 
 API = "https://api.notion.com/v1/search"
@@ -18,10 +19,7 @@ _pages: tuple[float, list] = (0.0, [])
 
 
 def _token() -> str:
-    token = os.environ.get("NOTION_TOKEN", "")
-    if not token and (STATE_DIR / "notion_token").is_file():
-        token = (STATE_DIR / "notion_token").read_text().strip()
-    return token
+    return os.environ.get("NOTION_TOKEN", "") or read_secret(STATE_DIR / "notion_token")
 
 
 def parse(results: list, user: str = "") -> list[dict]:

@@ -45,8 +45,8 @@ cp config.example.json "${THYNC_HOME:-$HOME/.thync}/config.json"
 | `config.json` | 직접 만드는 설정 파일 (선택) |
 | `token` | 접근 토큰 |
 | `jira.json` | Jira 티켓 요약과 에픽: `{"ABC-1": {"summary": "...", "status": "진행 중", "epic": "ABC-0", "epic_summary": "..."}}`. 자동 수집 시 배정 티켓은 약 5분, 발견한 키의 요약은 약 10분마다 갱신합니다. 인증 설정이 없으면 직접 작성합니다 |
-| `jira_token` | Jira API 토큰 (선택). 환경 변수 `JIRA_API_TOKEN`으로 줘도 됩니다. `chmod 600`으로 둡니다 |
-| `notion_token` | Notion integration 토큰 (선택). 환경 변수 `NOTION_TOKEN`으로 줘도 됩니다. `chmod 600`으로 둡니다 |
+| `jira_token` | Jira API 토큰 (선택). 환경 변수 `JIRA_API_TOKEN`으로 줘도 됩니다. `chmod 600`으로 둡니다. 다른 사용자가 읽을 수 있으면 서버 로그에 경고를 남깁니다 |
+| `notion_token` | Notion integration 토큰 (선택). 환경 변수 `NOTION_TOKEN`으로 줘도 됩니다. `chmod 600`으로 둡니다. 다른 사용자가 읽을 수 있으면 서버 로그에 경고를 남깁니다 |
 | `names.json` | 화면에서 바꾼 노드 이름 |
 | `cards/*.md` | 칸반 카드 ([파일 형식](usage.md#칸반-카드-파일)) |
 | `reflex.json` | Claude에게 맡긴 PR과 진행 상태 (tmux 세션 이름이나 리뷰 결과) |

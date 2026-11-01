@@ -161,11 +161,18 @@ def review_state(pr: dict) -> str:
     return "리뷰 대기"
 
 
-@functools.lru_cache(maxsize=64)
+_canonical: dict[str, str] = {}
+
+
 def canonical_slug(slug: str) -> str:
-    """Current 'owner/name' of a repository, so a renamed repo still matches its old remote URL."""
-    out = subprocess.run(["gh", "api", f"repos/{slug}", "--jq", ".full_name"], capture_output=True, text=True, timeout=15)
-    return (out.stdout.strip() or slug).lower()
+    """Current 'owner/name' of a repository, so a renamed repo still matches its old remote URL. Only answers
+    GitHub gave are remembered; a failed lookup falls back to the slug and is tried again next time."""
+    if slug not in _canonical:
+        out = subprocess.run(["gh", "api", f"repos/{slug}", "--jq", ".full_name"], capture_output=True, text=True, timeout=15)
+        if out.returncode != 0 or not out.stdout.strip():
+            return slug.lower()
+        _canonical[slug] = out.stdout.strip().lower()
+    return _canonical[slug]
 
 
 def refresh_forever() -> None:

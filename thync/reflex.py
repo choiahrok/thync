@@ -65,7 +65,8 @@ def start_reflex(node: dict, approve: bool = False) -> tuple[int, str]:
     if not root:
         return 404, f"이 머신에서 {slug} 저장소 폴더를 찾지 못했어요"
     skill = REFLEX_SKILL[role]
-    name = re.sub(r"[^A-Za-z0-9_-]", "-", f"thync-{repo}-{url.rstrip('/').rsplit('/', 1)[-1]}")
+    owner, number = slug.split("/")[0], url.rstrip("/").rsplit("/", 1)[-1]
+    name = re.sub(r"[^A-Za-z0-9_-]", "-", f"thync-{owner}-{repo}-{number}")
     command = shlex.join([CLAUDE_BIN, *OWN_PR_PERMISSIONS, "--", f"/{skill} {url}"])
     # new-session itself refuses a duplicate name, so there is no check-then-create race.
     try:

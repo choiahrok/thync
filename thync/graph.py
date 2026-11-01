@@ -198,6 +198,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
     # Tickets assigned to me: in progress, or updated in the last 7 days.
     for key, t in mine.items():
         at = epoch(t.get("updated", ""))
+        if now - at > window:
+            continue
         ukey, uname = jira.unit_of(key)
         unit(ukey, uname, jira.name(key), PROFILE_WORK, at, [key])
         tid = touch(ticket(key, PROFILE_WORK), at, ukey)
@@ -265,8 +267,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
     # Background: my tickets still in progress that lost the competition for the workspace.
     ws_units = {n["detail"]["unit"] for n in nodes.values() if "focus" in n["roles"]}
     for key, t in (mine.items() if not SESSIONS else ()):
-        n = nodes[f"jira:{key}"]
-        if t.get("status", "").lower() not in JIRA_TODO | JIRA_DONE and n["detail"]["unit"] not in ws_units:
+        n = nodes.get(f"jira:{key}")  # absent when the ticket is older than the selected period
+        if n and t.get("status", "").lower() not in JIRA_TODO | JIRA_DONE and n["detail"]["unit"] not in ws_units:
             n["roles"].append("running")
     model.mark_live(now, nodes, edges)
 

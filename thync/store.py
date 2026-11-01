@@ -11,7 +11,7 @@ import threading
 from pathlib import Path
 
 from .config import CARDS_DIR, STATE_DIR
-from .util import read_json, write_json
+from .util import read_json, write_json, write_text
 
 TOKEN_FILE = STATE_DIR / "token"
 NAMES_FILE = STATE_DIR / "names.json"
@@ -77,7 +77,10 @@ def parse_card(text: str) -> tuple[dict, str]:
         for line in head.splitlines():
             if ":" in line:
                 k, v = line.split(":", 1)
-                meta[k.strip()] = v.strip().strip('"')
+                v = v.strip()
+                if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":  # a value quoted by hand, YAML style
+                    v = v[1:-1]
+                meta[k.strip()] = v
         return meta, body.lstrip("\n")
     return meta, text
 
@@ -126,6 +129,4 @@ def _save_card(cid: str, change: dict) -> None:
         return
     CARDS_DIR.mkdir(parents=True, exist_ok=True)
     head = "\n".join(f"{k}: {' '.join(str(meta[k]).split())}" for k in CARD_KEYS if meta.get(k))
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(f"---\n{head}\n---\n\n{note.strip()}\n", encoding="utf-8")
-    tmp.replace(path)
+    write_text(path, f"---\n{head}\n---\n\n{note.strip()}\n")

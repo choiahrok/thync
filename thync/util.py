@@ -1,6 +1,9 @@
 """Small helpers shared by several modules."""
 import json
+import os
 import re
+import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -21,9 +24,32 @@ def read_json(path: Path, default):
         return default
 
 
-def write_json(path: Path, data) -> None:
-    """Write atomically so a reader never sees half a file."""
+def write_text(path: Path, text: str) -> None:
+    """Write atomically so a reader never sees half a file. The temp file is created fresh (O_EXCL), so in a
+    shared folder such as an Obsidian vault nobody can plant a symlink at a predictable temp name."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+def write_json(path: Path, data) -> None:
+    write_text(path, json.dumps(data, ensure_ascii=False, indent=1))
+
+
+def read_secret(path: Path) -> str:
+    """A token file's contents; warns once when other users can read it."""
+    if not path.is_file():
+        return ""
+    if path.stat().st_mode & 0o077 and path not in _warned:
+        _warned.add(path)
+        print(f"thync: {path} can be read by other users; run chmod 600 {path}", file=sys.stderr, flush=True)
+    return path.read_text().strip()
+
+
+_warned: set[Path] = set()

@@ -60,7 +60,7 @@ claude -p --restricted --strict-mcp-config --no-session-persistence --tools Read
 3. **세션에서 진행 상황을 확인합니다.** 실행한 세션은 '맡긴 일' 칸과 뇌 맨 아래에 하늘색으로 표시합니다. 아래 명령으로 세션에 접속할 수 있습니다.
 
 ```bash
-tmux attach -t thync-<저장소>-<번호>
+tmux attach -t thync-<소유자>-<저장소>-<번호>
 ```
 
 `~/.thync`·`~/.ssh`·`~/.claude/settings.json`은 파일 읽기 도구의 금지 목록에 포함합니다. 이 제한의 범위와 리뷰어 코멘트 등 외부 입력을 다룰 때의 주의점은 [데이터와 보안](security.md#pr-위임의-권한-범위)에 설명합니다.
@@ -75,5 +75,6 @@ tmux attach -t thync-<저장소>-<번호>
 | `posted` | 리뷰를 게시했습니다 |
 | `approved` | 승인 리뷰를 게시했습니다 |
 | `failed` | 리뷰에 실패했습니다 |
+| `same` | 이미 리뷰한 커밋이라 다시 올리지 않았습니다. 새 커밋이 push 되면 다시 맡길 수 있습니다 |
 
 내 PR의 후속 작업은 tmux 세션에 접속해 확인합니다.

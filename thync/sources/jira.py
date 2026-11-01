@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 
 from ..config import JIRA_BROWSE, JIRA_EMAIL, SOURCES, STATE_DIR
-from ..util import read_json, write_json
+from ..util import read_json, read_secret, write_json
 
 JIRA_FILE = STATE_DIR / "jira.json"
 BRANCH_KEY = re.compile(r"\b([A-Za-z][A-Za-z0-9]{1,9}-\d{1,6})\b")  # keys in branch names: abc-123
@@ -76,9 +76,7 @@ _open = urllib.request.build_opener(_NoRedirect).open
 
 
 def _auth() -> str:
-    token = os.environ.get("JIRA_API_TOKEN", "")
-    if not token and (STATE_DIR / "jira_token").is_file():
-        token = (STATE_DIR / "jira_token").read_text().strip()
+    token = os.environ.get("JIRA_API_TOKEN", "") or read_secret(STATE_DIR / "jira_token")
     return "Basic " + base64.b64encode(f"{JIRA_EMAIL}:{token}".encode()).decode() if JIRA_EMAIL and token else ""
 
 
@@ -98,11 +96,20 @@ def _ticket(f: dict) -> dict:
 
 def search_mine(base: str, auth: str) -> dict:
     """Tickets assigned to me that are in progress or were updated in the last 7 days: key -> ticket."""
-    q = urllib.parse.urlencode({"jql": MINE_JQL, "fields": "summary,status,parent,updated", "maxResults": 50})
-    req = urllib.request.Request(f"{base}/rest/api/3/search/jql?{q}",
-                                 headers={"Authorization": auth, "Accept": "application/json"})
-    with _open(req, timeout=15) as r:
-        return {i["key"]: _ticket(i["fields"]) for i in json.load(r).get("issues", [])}
+    tickets, token = {}, ""
+    for _ in range(4):  # up to 200 tickets
+        params = {"jql": MINE_JQL, "fields": "summary,status,parent,updated", "maxResults": 50}
+        if token:
+            params["nextPageToken"] = token
+        req = urllib.request.Request(f"{base}/rest/api/3/search/jql?{urllib.parse.urlencode(params)}",
+                                     headers={"Authorization": auth, "Accept": "application/json"})
+        with _open(req, timeout=15) as r:
+            page = json.load(r)
+        tickets.update({i["key"]: _ticket(i["fields"]) for i in page.get("issues", [])})
+        token = page.get("nextPageToken") or ""
+        if not token or page.get("isLast", True):
+            break
+    return tickets
 
 
 def refresh_forever() -> None:
@@ -110,7 +117,7 @@ def refresh_forever() -> None:
     if not auth or not base.startswith("https://"):
         return
     fetched: dict[str, float] = {}
-    mine_at = 0.0
+    mine_at, last_error = 0.0, 0
     while True:
         wait = 60
         try:
@@ -119,9 +126,12 @@ def refresh_forever() -> None:
                 mine_at = time.time()
                 try:
                     mine = search_mine(base, auth)
+                    last_error = 0
                     fetched.update({k: time.time() for k in mine})  # just fetched; no need to ask again
                 except urllib.error.HTTPError as e:
-                    print(f"thync: Jira search failed (HTTP {e.code})", file=sys.stderr, flush=True)
+                    if e.code != last_error:  # the same failure every pass would flood the log
+                        print(f"thync: Jira search failed (HTTP {e.code})", file=sys.stderr, flush=True)
+                    last_error = e.code
                     if e.code in (401, 429) or e.code >= 500:
                         raise  # back off like the per-key fetch below
                 except (OSError, ValueError, KeyError, TypeError):
