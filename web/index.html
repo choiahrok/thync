@@ -18,6 +18,10 @@
     #hud { position: absolute; top: 14px; left: 16px; display: flex; gap: 12px; align-items: center;
       font: 12px "JetBrains Mono", Menlo, monospace; letter-spacing: .08em; color: var(--quiet); }
     #hud b { color: var(--ink); }
+    #rotate { position: absolute; top: 10px; right: 16px; height: 28px; padding: 0 12px; background: rgba(12, 11, 14, .6);
+      border: 1px solid var(--line); border-radius: 6px; color: var(--quiet); font: 12px "JetBrains Mono", Menlo, monospace;
+      letter-spacing: .06em; cursor: pointer; }
+    #rotate:hover { color: var(--glow); border-color: rgba(255, 207, 107, .6); }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 10px var(--glow);
       animation: beat 1.2s ease-in-out infinite; }
     @keyframes beat { 50% { transform: scale(1.6); opacity: .6; } }
@@ -160,6 +164,7 @@
     <div id="brain">
       <canvas id="graph"></canvas>
       <div id="hud"><span class="dot"></span><b>THYNC</b><span id="status">불러오는 중</span></div>
+      <button id="rotate" type="button"></button>
       <ul id="live"></ul>
       <div id="help">드래그 회전 · 스크롤 확대 · 노드 클릭 선택 · PR 노드를 맨 아래 줄기에 놓으면 리뷰 작업을 맡김 · 카드는 끌어서 옮기고 두 번 눌러 고침</div>
     </div>
@@ -187,7 +192,6 @@
       <button data-days="30">1달</button>
     </div>
     <label class="toggle"><input type="checkbox" id="show-all"> 지난 작업도 보기 (Backlog·완료 포함)</label>
-    <label class="toggle"><input type="checkbox" id="auto-rotate"> 뇌 천천히 돌리기</label>
     <div class="legend"><span><i style="background:#ffcf6b"></i>내가 집중</span><span><i style="background:#6be3ff"></i>백그라운드</span><span><i style="background:#ff8a70"></i>리뷰 요청</span><span><i style="background:#c9a7ff"></i>보낸 리뷰</span><span><i style="background:#7fa7d6"></i>회사</span><span><i style="background:#8fd19a"></i>개인</span></div>
     <h2>내가 집중하는 일 · 최대 4</h2>
     <ul id="focus"></ul>

@@ -111,11 +111,15 @@ showAll.onchange = () => {
   apply();
 };
 
-const autoRotate = document.querySelector<HTMLInputElement>("#auto-rotate")!;
-autoRotate.checked = recall("autoRotate") !== "0";
-autoRotate.onchange = () => {
-  remember("autoRotate", autoRotate.checked ? "1" : "0");
-  renderer.setOptions({ idleAutoRotate: autoRotate.checked });
+// The brain turns slowly when left alone; this button stops or restarts that, and the browser remembers it.
+const rotate = document.querySelector<HTMLButtonElement>("#rotate")!;
+const showRotate = (on: boolean) => { rotate.textContent = on ? "⏸ 회전 멈춤" : "▶ 회전"; };
+showRotate(recall("autoRotate") !== "0");
+rotate.onclick = () => {
+  const on = recall("autoRotate") === "0";
+  remember("autoRotate", on ? "1" : "0");
+  renderer.setOptions({ idleAutoRotate: on });
+  showRotate(on);
 };
 
 void poll();
