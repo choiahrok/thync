@@ -44,7 +44,7 @@ export function renderPanel(): void {
   const sub = (n: ApiNode): string => `${n.profile} · ${String(n.detail.branch || n.detail.kind_label)} · ${ago(Number(n.detail.updated))}`;
   // A session says how much I prompted; a branch, ticket or page says what its last activity was.
   const what = (n: ApiNode): string => n.kind === "workThread"
-    ? `${n.detail.claude_working ? `${n.detail.source === "codex" ? "Codex" : "Claude"} 작업 중 · ` : ""}최근 1시간 프롬프트 ${n.detail.focus_prompts}개 · `
+    ? `${n.detail.waiting ? "선택 대기 · " : ""}${n.detail.claude_working ? `${n.detail.source === "codex" ? "Codex" : "Claude"} 작업 중 · ` : ""}최근 1시간 프롬프트 ${n.detail.focus_prompts}개 · `
     : n.detail.text && n.detail.text !== n.name ? `${cut(String(n.detail.text), 60)} · ` : "";
 
   const focused = sources.filter((n) => n.roles.includes("focus"))

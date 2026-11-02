@@ -137,7 +137,7 @@ class GraphWithoutSessions(unittest.TestCase):
         self.assertEqual((cards["jira:ABC-9"], cards["jira:ABC-5"]), ("doing", "background"))
         self.assertTrue(g["activity"])
 
-    def test_with_session_logs_only_sessions_compete_for_focus(self):
+    def test_with_session_logs_commits_add_nothing(self):
         commits = [{"slug": "o/r", "branch": "feat", "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     "message": "x", "url": "https://github.com/o/r/tree/feat", "personal": False}]
         with mock.patch.multiple(graph, SESSIONS=True, SOURCES={"claude_code", "github"}), \
@@ -146,10 +146,9 @@ class GraphWithoutSessions(unittest.TestCase):
                 mock.patch.object(github, "review_requests", return_value=[]), \
                 mock.patch.object(github, "sent_reviews", return_value=[]):
             g = graph.build_graph(7)
-        branch = next(n for n in g["nodes"] if n["id"] == "branch:r:feat")
-        self.assertNotIn("last_at", branch["detail"])
-        self.assertNotIn("focus", branch["roles"])
-        self.assertEqual(next(u for u in g["units"] if u["id"] == "branch:r:feat")["updated"], 0)
+        # Sessions describe the work; commits would only add a unit per branch and merge commit.
+        self.assertFalse(any(n["id"] == "branch:r:feat" for n in g["nodes"]))
+        self.assertFalse(any(u["id"] == "branch:r:feat" for u in g["units"]))
 
 
 class EpochTest(unittest.TestCase):

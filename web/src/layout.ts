@@ -116,7 +116,8 @@ export function toGraph(): BrainGraph {
   for (const e of edges) { adj[e.a].push(e.b); adj[e.b].push(e.a); }
   for (const n of nodes) n.degree = adj[n.id].length;
 
-  const titled = units.filter((u) => tiers.get(u.id)! <= 3);
+  // Front tiers first, so when titles crowd the overlay keeps the ones I am focused on.
+  const titled = units.filter((u) => tiers.get(u.id)! <= 3).sort((a, b) => tiers.get(a.id)! - tiers.get(b.id)!);
   const auto = units.filter((u) => tiers.get(u.id) === 4);
   const clusterTitles = [
     ...titled.map((u) => {

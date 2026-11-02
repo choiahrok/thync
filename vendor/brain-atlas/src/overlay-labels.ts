@@ -110,9 +110,12 @@ export function drawLobeLabels(
 ): void {
   ctx.textBaseline = "middle";
   if (graph.clusterTitles) {
-    // thync: top to bottom on screen, push each title below any it would overlap
+    // thync: titles come most important first; each moves down past titles it would overlap, but at most
+    // MAX_LIFT, so a crowded brain never draws leader lines to the bottom of the screen. A title with no room
+    // left keeps only its dot.
+    const MAX_LIFT = 60;
     const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
-    const items = graph.clusterTitles.map((t) => ({ t, projected: project(t.at) })).sort((a, b) => a.projected.sy - b.projected.sy);
+    const items = graph.clusterTitles.map((t) => ({ t, projected: project(t.at) }));
     for (const { t, projected } of items) {
       ctx.font = "700 17px Inter, system-ui, sans-serif";
       const titleWidth = ctx.measureText(t.title).width;
@@ -123,8 +126,10 @@ export function drawLobeLabels(
         box.y1 += hit.y1 + 2 - box.y0;
         box.y0 = hit.y1 + 2;
       }
+      const alpha = Math.max(0.35, 1 - Math.max(0, projected.depth - 0.2));
+      if (box.y0 - (projected.sy - 32) > MAX_LIFT) { drawLobeDot(ctx, projected, t.color, alpha); continue; }
       placed.push(box);
-      drawLobeLabel(ctx, projected, t.color, Math.max(0.35, 1 - Math.max(0, projected.depth - 0.2)), t.title, t.sub, true, box.y0 - (projected.sy - 32));
+      drawLobeLabel(ctx, projected, t.color, alpha, t.title, t.sub, true, box.y0 - (projected.sy - 32));
     }
     return;
   }

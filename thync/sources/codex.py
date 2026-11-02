@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from .claude_code import Session
+from .claude_code import ASK_TOOLS, Session
 
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update) File: (.+)$", re.M)
 
@@ -44,6 +44,8 @@ class CodexSession(Session):
             self.claude_turn = t == "task_started"
         elif kind == "event_msg" and t == "thread_name_updated":
             self.title = p.get("thread_name") or self.title
+        elif kind == "response_item" and t in ("function_call_output", "custom_tool_call_output"):
+            self.answered(p.get("call_id", ""))
         elif kind == "response_item" and t in ("function_call", "custom_tool_call"):
             self.last_at = max(self.last_at, ts)
             name, raw = p.get("name", ""), p.get("arguments") or p.get("input") or ""
@@ -57,5 +59,7 @@ class CodexSession(Session):
                 args = json.loads(raw) if t == "function_call" else {}
             except json.JSONDecodeError:
                 args = {}
+            if name in ASK_TOOLS:
+                self.ask(p.get("call_id", ""), ts, name, args if isinstance(args, dict) else {})
             desc = next((str(args[k]) for k in ("cmd", "query", "path") if args.get(k)), "")
             self.events.append((ts, "tool", f"{name} {' '.join(desc.split())[:60]}".strip()))

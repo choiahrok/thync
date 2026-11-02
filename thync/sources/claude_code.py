@@ -13,8 +13,18 @@ from ..config import CLAUDE_LOGS, CODEX_LOGS, HOME, SOURCES
 from ..util import epoch
 
 FILE_TOOLS = {"Edit", "Write", "NotebookEdit", "MultiEdit"}
+ASK_TOOLS = {"AskUserQuestion", "ExitPlanMode", "request_user_input", "request_user_input_async"}  # wait for my answer
 TS = re.compile(r'"timestamp":"([^"]+)"')
 SLASH = re.compile(r"<command-name>(/[\w:-]+)</command-name>.*?(?:<command-args>(.*?)</command-args>|$)", re.S)
+
+
+def questions_of(name: str, inp: dict) -> list[dict]:
+    """The questions a tool call puts to me, trimmed for the screen: [{question, options[]}]."""
+    if name == "ExitPlanMode":
+        return [{"question": "계획을 승인할까요?", "options": [], "detail": str(inp.get("plan") or "")[:600]}]
+    return [{"question": str(q.get("question") or q.get("header") or "")[:300],
+             "options": [str(o.get("label") or "")[:80] for o in (q.get("options") or [])[:6] if isinstance(o, dict)]}
+            for q in (inp.get("questions") or [])[:4] if isinstance(q, dict)]
 
 
 def describe_tool(block: dict) -> str:
@@ -43,8 +53,16 @@ class Session:
         self.files: dict[str, str] = {}
         self.events: deque = deque(maxlen=40)
         self.claude_turn = False
+        self.waiting: dict | None = None  # a question put to me and not answered yet: {id, at, tool, questions}
         # Time of the last prompt or reply. The file mtime is not enough: the app appends metadata to old logs.
         self.last_at = ""
+
+    def ask(self, call_id: str, at: str, name: str, inp: dict) -> None:
+        self.waiting = {"id": call_id, "at": at, "tool": name, "questions": questions_of(name, inp)}
+
+    def answered(self, call_id: str) -> None:
+        if self.waiting and self.waiting["id"] == call_id:
+            self.waiting = None
 
     def update(self) -> None:
         with self.path.open("rb") as f:
@@ -73,6 +91,8 @@ class Session:
                     if block.get("type") != "tool_use":
                         continue
                     self.events.append((d.get("timestamp", ""), "tool", describe_tool(block)))
+                    if block.get("name") in ASK_TOOLS:
+                        self.ask(block.get("id", ""), d.get("timestamp", ""), block["name"], block.get("input") or {})
                     fp = (block.get("input") or {}).get("file_path")
                     if block.get("name") in FILE_TOOLS and fp:
                         self.files[fp] = d.get("timestamp", "")
@@ -85,6 +105,12 @@ class Session:
             self.cwd = self.cwd or d.get("cwd") or ""  # the folder the session started in
             self.branch = d.get("gitBranch") or self.branch
             content = (d.get("message") or {}).get("content")
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "tool_result":
+                        self.answered(block.get("tool_use_id", ""))
+            elif self.waiting and isinstance(content, str) and content.strip():
+                self.waiting = None  # I typed something else instead of answering, e.g. pressed Esc and moved on
             command = SLASH.search(content) if isinstance(content, str) else None
             if command:
                 # Slash commands with arguments count as prompts ('/name args'); bare ones like /clear do not.

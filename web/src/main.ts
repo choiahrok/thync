@@ -8,8 +8,9 @@ import { reactToChanges, renderLive, resetLive } from "./live.ts";
 import { renderPanel, setStatus } from "./panel.ts";
 import { openReflex } from "./reflex.ts";
 import { renderer } from "./renderer.ts";
-import { remember, state } from "./state.ts";
+import { recall, remember, state } from "./state.ts";
 import { colorOf, isHub } from "./style.ts";
+import { checkWaiting } from "./waiting.ts";
 
 /** Redraw everything from state.data. The graph is rebuilt only when its shape changed, so nodes keep their places. */
 export function apply(): void {
@@ -29,6 +30,7 @@ export function apply(): void {
     }
   }
   renderPanel();
+  checkWaiting();
   renderBoard();
   renderLive();
   reactToChanges();
@@ -68,7 +70,7 @@ canvas.addEventListener("pointerup", () => { pointerUpAt = performance.now(); })
 state.graph = toGraph();
 renderer.onSpineDrop = openReflex;
 renderer.start(canvas, () => state.graph, {
-  idleAutoRotate: true,
+  idleAutoRotate: recall("autoRotate") !== "0",
   showLobeLabels: true,
   enabledLobes: allLobesEnabled(),
   onChange: () => {
@@ -107,6 +109,13 @@ showAll.onchange = () => {
   state.showAll = showAll.checked;
   remember("showAll", state.showAll ? "1" : "0");
   apply();
+};
+
+const autoRotate = document.querySelector<HTMLInputElement>("#auto-rotate")!;
+autoRotate.checked = recall("autoRotate") !== "0";
+autoRotate.onchange = () => {
+  remember("autoRotate", autoRotate.checked ? "1" : "0");
+  renderer.setOptions({ idleAutoRotate: autoRotate.checked });
 };
 
 void poll();

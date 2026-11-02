@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import board, model
 from .config import (ACTIVITY_SEC, BACKGROUND_SEC, DEFAULT_DAYS, FILES_PER_SESSION, FILES_SEC, FOCUS_SEC, HANDOFF,
-                     JIRA_DONE, JIRA_TODO, LIVE_FILE_SEC, PROFILE_PERSONAL, PROFILE_WORK, PRS_PER_SESSION,
+                     JIRA_DONE, JIRA_TODO, LIVE_FILE_SEC, LIVE_SESSION_SEC, PROFILE_PERSONAL, PROFILE_WORK, PRS_PER_SESSION,
                      RUNNING_STALE_SEC, COMPANY_ROOTS, SESSIONS, SOURCES)
 from .reflex import REFLEX_SKILL
 from .sources import github, notion
@@ -30,7 +30,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
     now = time.time()
     window = days * 86400
     sessions = load_sessions(now, window) if SESSIONS else []
-    commits = github.my_commits(now) if "github" in SOURCES else []
+    # With session logs the sessions describe my work; commits would only add a unit per branch and merge.
+    commits = github.my_commits(now) if "github" in SOURCES and not SESSIONS else []
     pages = notion.recent_pages(now) if "notion" in SOURCES else []
     nodes: dict[str, dict] = {}
     edges: set[tuple[str, str]] = set()
@@ -137,7 +138,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
                    kind_label="작업 세션", source=s.source, cwd=s.cwd, branch=s.branch, updated=int(last), working=running,
                    focus_prompts=len(recent_prompts), subagents=subs, claude_working=claude_working,
                    last_at=last_prompt_at, act=model.retention(age), reflex=reflex_url,
-                   last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey)
+                   last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey,
+                   waiting=s.waiting if s.waiting and now - epoch(s.waiting["at"]) < LIVE_SESSION_SEC else None)
 
         if reflex_url:
             edge(sid, f"pr:{reflex_url}")
@@ -179,7 +181,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         owner, repo = c["slug"].split("/", 1)
         profile = PROFILE_PERSONAL if c.get("personal") else PROFILE_WORK
         branch = "" if c["branch"] in SKIP_BRANCHES else c["branch"]
-        title = c["message"].strip().split("\n")[0][:100] or branch
+        first = c["message"].strip().split("\n")[0]
+        title = (branch or repo) if first.startswith("Merge ") else first[:100] or branch or repo
         keys = sorted({k.upper() for k in BRANCH_KEY.findall(branch)} |
                       {k for k in TITLE_KEY.findall(c["message"]) if k.split("-")[0] in prefixes})
         ukey, uname = unit_of(keys, repo, branch, None, title)

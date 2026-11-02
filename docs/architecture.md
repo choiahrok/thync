@@ -155,6 +155,7 @@ flowchart TD
 | `updated`, `last_at` | 갱신 시각과 활동 출처의 마지막 활동 시각(초) |
 | `claude_working`, `subagents` | Claude 작업 여부와 하위 에이전트 수 |
 | `reflex` | 맡긴 PR 주소 |
+| `waiting` | 세션이 나에게 묻고 아직 답을 받지 못한 질문(24시간 안): `id`, `at`, `tool`(`AskUserQuestion`·`ExitPlanMode`·`request_user_input`), `questions[]`(`question`, `options[]`, 계획이면 `detail`). 답하면 사라집니다 |
 | `review_state`, `reviewers`, `author` | 리뷰 상태·리뷰어·작성자 |
 | `jira_status` | Jira 상태 |
 | `auto_name` | 사용자가 바꾸기 전 자동 이름 |

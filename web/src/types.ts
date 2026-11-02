@@ -9,7 +9,7 @@ export interface ApiNode {
   glow: number;
   roles: string[];
   status: BrainNode["status"];
-  detail: Record<string, string | number | boolean>;
+  detail: Record<string, string | number | boolean> & { waiting?: Waiting | null };
 }
 export interface ApiEvent { at: string; kind: string; text: string; session: string; title: string; profile: string }
 export interface ApiUnit {
@@ -23,4 +23,9 @@ export interface ApiGraph {
   schema: number; board: ApiCard[]; generated: number; focus_level: number; handoff: boolean; units: ApiUnit[]; nodes: ApiNode[];
   edges: [string, string][]; activity: ApiEvent[];
   received: { pr: string; author: string; state: string; at: string; text: string }[];
+}
+
+/** A question a session put to me and I have not answered yet (detail.waiting of a session node). */
+export interface Waiting {
+  id: string; at: string; tool: string; questions: { question: string; options: string[]; detail?: string }[];
 }

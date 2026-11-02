@@ -89,6 +89,31 @@ class FixesTest(unittest.TestCase):
             nodes = {n["id"] for n in graph.build_graph(7)["nodes"]}
         self.assertNotIn("jira:A-9", nodes)
 
+    def test_unanswered_question_is_waiting_until_answered(self):
+        from thync.sources.claude_code import Session
+        from thync.sources.codex import CodexSession
+        ask = {"questions": [{"question": "Which?", "header": "h", "options": [{"label": "A"}, {"label": "B"}]}]}
+        claude = [
+            {"type": "assistant", "timestamp": "t1", "message": {"content": [
+                {"type": "tool_use", "id": "q1", "name": "AskUserQuestion", "input": ask}]}},
+            {"type": "user", "timestamp": "t2", "message": {"content": [{"type": "tool_result", "tool_use_id": "q1"}]}}]
+        codex = [
+            {"type": "session_meta", "payload": {"id": "c", "cwd": "/w"}},
+            {"type": "response_item", "timestamp": "t1", "payload": {
+                "type": "function_call", "name": "request_user_input", "call_id": "k1", "arguments": json.dumps(ask)}},
+            {"type": "response_item", "timestamp": "t2", "payload": {"type": "function_call_output", "call_id": "k1"}}]
+        for cls, lines in ((Session, claude), (CodexSession, codex)):
+            with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+                f.write("".join(json.dumps(x, separators=(",", ":")) + "\n" for x in lines[:-1]))
+            self.addCleanup(os.unlink, f.name)
+            s = cls(Path(f.name))
+            s.update()
+            self.assertEqual(s.waiting["questions"], [{"question": "Which?", "options": ["A", "B"]}], cls.__name__)
+            with open(f.name, "a") as f2:
+                f2.write(json.dumps(lines[-1], separators=(",", ":")) + "\n")
+            s.update()
+            self.assertIsNone(s.waiting, cls.__name__)
+
 
 if __name__ == "__main__":
     unittest.main()
