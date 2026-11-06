@@ -70,3 +70,18 @@ claude mcp add thync -e PYTHONPATH="/absolute/path/to/thync" -- python3 -m thync
 ```
 
 `/absolute/path/to/thync`는 저장소의 절대 경로로 바꿉니다. 도구의 `days`는 1~30이며 기본값은 7입니다. HTTP 서버와 별도의 표준 입출력 프로세스로 실행하므로 브라우저 접근 토큰은 필요하지 않습니다. 같은 사용자와 `THYNC_HOME`을 사용하면 설정과 저장 파일을 공유합니다.
+
+## 세션을 시작할 때 자동으로 알려 주기 (SessionStart hook)
+
+Claude Code 세션이 시작되거나 대화가 압축(compact)된 직후, thync 가 지금 작업 현황을 세션에 자동으로 넣게 할 수 있습니다. 에이전트가 따로 묻지 않아도 집중하는 일, 밀린 리뷰, 맡긴 일을 알고 시작합니다. 세션이 시작된 폴더가 `company_roots` 아래면 회사 항목만, 아니면 개인 항목만 넣고, 목록마다 6개까지 약 2천 자 안팎으로 줄입니다. 실행 중인 thync 서버에서 읽으므로, 서버가 꺼져 있으면 아무것도 넣지 않고 세션 시작을 기다리게 하지 않습니다.
+
+`~/.claude/settings.json` 의 `hooks` 에 다음을 더합니다.
+
+```json
+"SessionStart": [
+  {
+    "matcher": "startup|compact",
+    "hooks": [{ "type": "command", "command": "PYTHONPATH=/absolute/path/to/thync python3 -m thync.hook", "timeout": 10 }]
+  }
+]
+```

@@ -60,6 +60,7 @@ cat "${THYNC_HOME:-$HOME/.thync}/token"
 
 - Jira·Notion을 연결하거나 수집할 출처를 바꾸려면 [설정 안내](docs/configuration.md)를 확인합니다.
 - 에이전트가 현재 맥락을 조회하게 하려면 [MCP 등록 방법](docs/usage.md#에이전트에서-지금-하는-일-묻기-mcp)을 확인합니다.
+- 새 Claude Code 세션이 현재 맥락을 알고 시작하게 하려면 [SessionStart hook](docs/usage.md#세션을-시작할-때-자동으로-알려-주기-sessionstart-hook)을 등록합니다.
 - 원격 접속이나 실행 문제는 [설치와 실행](docs/getting-started.md)에서 확인합니다.
 
 ## 데이터는 어떻게 다루나요

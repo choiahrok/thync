@@ -23,7 +23,11 @@ TOOL = {
 
 
 def now(profile: str | None = None, days: int = 7) -> str:
-    g = build_graph(max(1, min(int(days), MAX_DAYS)))
+    return summarize(build_graph(max(1, min(int(days), MAX_DAYS))), profile)
+
+
+def summarize(g: dict, profile: str | None = None, per_section: int = 0) -> str:
+    """The graph as short text, one item per line. per_section caps each list (0 = no cap)."""
     units = {u["id"]: u["name"] for u in g["units"]}
     nodes = [n for n in g["nodes"] if not profile or n["profile"] == profile]
 
@@ -33,9 +37,12 @@ def now(profile: str | None = None, days: int = 7) -> str:
         return "- " + " · ".join(p for p in parts if p)
 
     def section(title: str, rows: list[str]) -> str:
-        return f"{title} ({len(rows)})\n" + "\n".join(rows) if rows else f"{title}: 없음"
+        shown = rows[:per_section] if per_section else rows
+        more = f"\n- … {len(rows) - len(shown)}개 더" if len(rows) > len(shown) else ""
+        return f"{title} ({len(rows)})\n" + "\n".join(shown) + more if rows else f"{title}: 없음"
 
     prs = [n for n in nodes if n["kind"] in ("source", "incident")]
+    by_id = {n["id"]: n for n in nodes}
     handed = [c for c in g["board"] if c["column"] == "reflex" and (not profile or c["profile"] == profile)]
     return "\n\n".join([
         f"몰입 {round(g['focus_level'] * 100)}%",
@@ -43,6 +50,9 @@ def now(profile: str | None = None, days: int = 7) -> str:
         section("백그라운드", [line(n) for n in nodes if "running" in n["roles"] and "last_at" in n["detail"]]),
         section("나에게 온 리뷰 요청", [line(n, str(n["detail"].get("text", ""))[:80]) for n in prs if "review" in n["roles"]]),
         section("리뷰를 기다리는 내 PR", [line(n, str(n["detail"].get("review_state", ""))) for n in prs if "sent" in n["roles"]]),
+        section("최근 받은 리뷰", [f"- {r['author']} · {r['state']} — {by_id[r['pr']]['name']}"
+                                + (f" · {' '.join(r['text'].split())[:80]}" if r["text"] else "")
+                                for r in g.get("received", []) if r["pr"] in by_id]),
         section("맡긴 일", ["- " + " · ".join([c["title"][:80], *c["tags"]]) for c in handed]),
     ])
 

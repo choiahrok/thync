@@ -88,6 +88,7 @@ flowchart TD
 | `review.py` | 남의 PR을 임시 폴더에 받아 `claude -p --restricted`로 읽기만 시키고, 돌려받은 리뷰를 확인해 올립니다 |
 | `server.py` | HTTP 처리, 토큰 확인, 화면 파일 제공 |
 | `mcp.py` | 표준 입출력 MCP 서버. `thync_now` 도구로 패널과 '맡긴 일' 목록을 짧은 글로 반환합니다 |
+| `hook.py` | Claude Code SessionStart hook. 실행 중인 서버의 그래프를 세션 폴더의 프로필로 줄여 세션 맥락에 넣는다 |
 
 ## 화면 (`web/src/`)
 
