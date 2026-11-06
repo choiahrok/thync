@@ -11,7 +11,7 @@ import type { ApiCard } from "./types.ts";
 
 const boardEl = document.querySelector<HTMLDivElement>("#board")!;
 const stageEl = document.querySelector<HTMLElement>("#stage")!;
-const COLUMN_NAME: Record<string, string> = { todo: "Todo", doing: "진행 중", background: "백그라운드 진행 중", reflex: "맡긴 일", done: "완료" };
+const COLUMN_NAME: Record<string, string> = { waiting: "선택 대기", todo: "Todo", doing: "진행 중", background: "백그라운드 진행 중", reflex: "맡긴 일", done: "완료" };
 let busy = false; // while dragging or editing, the 2 s refresh must not redraw the cards
 
 const saveCard = (body: Record<string, unknown>) => post("/board", body);
@@ -75,6 +75,7 @@ export function renderBoard(): void {
   for (const section of boardEl.querySelectorAll<HTMLElement>("section")) {
     if (section.dataset.col === "reflex") section.hidden = !state.data.handoff;
     const mine = cards.filter((c) => c.column === section.dataset.col);
+    if (section.dataset.col === "waiting") section.hidden = !mine.length;
     const h3 = section.querySelector("h3")!;
     const label = (h3.dataset.label ??= h3.textContent ?? "");
     h3.replaceChildren(label, Object.assign(document.createElement("span"), { textContent: String(mine.length) }));
@@ -97,7 +98,8 @@ for (const section of boardEl.querySelectorAll<HTMLElement>("section")) {
       openReflex(card.focus && reflexTargets(card.focus).length ? card.focus : card.id);
       return;
     }
-    if (card.column === "reflex") return; // handed-off cards are session records and stay put
+    // Handed-off cards are session records, and a waiting card leaves once I answer in the session.
+    if (card.column === "reflex" || card.column === "waiting" || section.dataset.col === "waiting") return;
     card.column = section.dataset.col!;   // move it right away instead of waiting for the server
     card.moved = card.column !== card.auto_column;
     busy = false;

@@ -1,6 +1,6 @@
 """Kanban cards. One card per work unit; review requests and my PRs under review get one card per PR.
 
-Columns: todo, doing, background, reflex (work handed off to Claude), done. A column set by hand in the
+Columns: waiting (a session waits on my answer), todo, doing, background, reflex (work handed off to Claude), done. A column set by hand in the
 card's Markdown file wins over the automatic one, which stays in `auto_column` so it can be restored.
 """
 from .config import HANDOFF, JIRA_DONE, JIRA_TODO, PROFILE_PERSONAL, PROFILE_WORK
@@ -12,6 +12,8 @@ REVIEW_STATUS = {"running": "리뷰 중", "posted": "리뷰 올림", "approved":
 
 
 def _auto_column(members: list[dict]) -> str:
+    if any(n["detail"].get("waiting") for n in members):
+        return "waiting"
     sources = [n for n in members if "last_at" in n["detail"]]
     statuses = {n["detail"].get("jira_status", "").lower() for n in members if n["kind"] == "project"} - {""}
     if any("focus" in n["roles"] for n in sources) or any(n["detail"]["live"] and "running" not in n["roles"]
@@ -62,7 +64,8 @@ def build_board(units: dict, nodes: dict, names: dict, card_files: dict) -> list
         c["auto_column"] = c["column"]
         f = card_files.get(c["id"])
         meta = f["meta"] if f else {}
-        c["column"] = meta.get("column") if meta.get("column") in BOARD_COLUMNS else c["column"]
+        if c["column"] != "waiting":  # a pending question shows up even on a card I placed by hand
+            c["column"] = meta.get("column") if meta.get("column") in BOARD_COLUMNS else c["column"]
         c["title"] = meta.get("title") or c["title"]
         c["note"] = f["note"] if f else ""
         c["moved"] = c["column"] != c["auto_column"]

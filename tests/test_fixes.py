@@ -114,6 +114,17 @@ class FixesTest(unittest.TestCase):
             s.update()
             self.assertIsNone(s.waiting, cls.__name__)
 
+    def test_waiting_session_gets_its_own_column_over_a_hand_set_one(self):
+        from thync import board
+        unit = {"u": {"name": "u", "title": "u", "profile": "개인", "updated": 0}}
+        node = {"id": "session:1", "kind": "workThread", "roles": ["running"], "name": "s", "profile": "개인",
+                "detail": {"unit": "u", "last_at": 1, "live": True, "waiting": {"id": "q"}}}
+        files = {"u": {"meta": {"column": "doing"}, "note": "", "path": Path("u.md")}}
+        cards = board.build_board(unit, {"session:1": node}, {}, files)
+        self.assertEqual((cards[0]["column"], cards[0]["auto_column"]), ("waiting", "waiting"))
+        node["detail"]["waiting"] = None
+        self.assertEqual(board.build_board(unit, {"session:1": node}, {}, files)[0]["column"], "doing")
+
 
 if __name__ == "__main__":
     unittest.main()

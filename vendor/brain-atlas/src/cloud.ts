@@ -7,7 +7,7 @@
  * same generation order, same twPhase/twFreq). No WebGL context, no DOM, no
  * `obsidian` import — importable under node --test and by either renderer.
  *
- * The construction (1400 surface + 220 cerebellum + 28 stem = 1648 points) is
+ * The construction (4200 surface + 360 cerebellum + 28 stem, plus thync's 90-point spine) is
  * the exact body that previously lived in BrainRenderer.buildCloud(); do not
  * change the math, indices, or constants — the Canvas2D A/B self-check guards
  * that the rendered output is unchanged.
@@ -16,9 +16,9 @@
 import { Brain3D, spinePoint } from "./shape.ts";
 import type { SurfacePoint } from "./shape.ts";
 
-/** Build the full brain point cloud (1400 surface + 220 cerebellum + 28 stem). */
+/** Build the full brain point cloud (4200 surface + 360 cerebellum + 28 stem + 90 spine). */
 export function buildBrainCloud(): SurfacePoint[] {
-  const surface = Brain3D.generateSurface(2600, 0.026).map((p, index) => ({
+  const surface = Brain3D.generateSurface(4200, 0.026).map((p, index) => ({
     ...p,
     lobe: Brain3D.lobeFor(p),
     twPhase: (index * 0.731) % (Math.PI * 2),
@@ -26,8 +26,8 @@ export function buildBrainCloud(): SurfacePoint[] {
   }));
   const cerebellum: SurfacePoint[] = [];
   const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let index = 0; index < 220; index += 1) {
-    const t = (index + 0.5) / 220;
+  for (let index = 0; index < 360; index += 1) {
+    const t = (index + 0.5) / 360;
     const phi = Math.asin(2 * t - 1);
     const theta = (golden * index) % (Math.PI * 2);
     cerebellum.push({

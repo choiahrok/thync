@@ -68,6 +68,8 @@
     .card .tags i { font-style: normal; font-size: 10.5px; color: var(--quiet); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
     @media (max-width: 1100px) { #board { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-y: auto; } }
     #board section.reflex { border-color: rgba(107, 227, 255, .35); }
+    #board section.waiting { border-color: rgba(255, 207, 107, .5); }
+    #board section[hidden] { display: none; }
     #board section.reflex h3 { color: #6be3ff; }
     #board section.over { border-color: #ffcf6b; background: #1d1b17; }
     #board section[hidden] { display: none; }
@@ -115,7 +117,9 @@
     .card { position: relative; padding-right: 64px; }
     li.empty { color: var(--quiet); font-size: 12px; cursor: default; }
     .toggle { display: block; font-size: 12px; color: var(--quiet); margin: -6px 0 12px; cursor: pointer; }
-    .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--quiet); }
+    .legend { font-size: 11px; color: var(--quiet); }
+    .legend summary { cursor: pointer; }
+    .legend span { display: inline-block; margin: 6px 10px 0 0; }
     .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
     .main { font-size: 13px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .sub { font-size: 11px; color: var(--quiet); margin-top: 2px; }
@@ -171,6 +175,7 @@
     <div id="splitter" title="끌어서 칸반 높이 바꾸기 · 두 번 누르면 원래대로" aria-label="칸반 높이 조절" role="separator" aria-orientation="horizontal"></div>
     <div id="boardbar"><span class="modes"><button data-mode="both">뇌 + 칸반</button><button data-mode="brain">뇌만</button><button data-mode="board">칸반만</button></span><span id="board-hint">끌어서 옮기기 · 제목이나 메모를 두 번 눌러 바로 고치기 · 카드 하나 = Markdown 파일 하나</span><button id="add-card">+ 카드</button></div>
     <div id="board">
+      <section data-col="waiting" class="waiting" hidden><h3>선택 대기</h3><div></div></section>
       <section data-col="todo"><h3>Todo</h3><div></div></section>
       <section data-col="doing"><h3>진행 중</h3><div></div></section>
       <section data-col="background"><h3>백그라운드 진행 중</h3><div></div></section>
@@ -192,7 +197,7 @@
       <button data-days="30">1달</button>
     </div>
     <label class="toggle"><input type="checkbox" id="show-all"> 지난 작업도 보기 (Backlog·완료 포함)</label>
-    <div class="legend"><span><i style="background:#ffcf6b"></i>내가 집중</span><span><i style="background:#6be3ff"></i>백그라운드</span><span><i style="background:#ff8a70"></i>리뷰 요청</span><span><i style="background:#c9a7ff"></i>보낸 리뷰</span><span><i style="background:#7fa7d6"></i>회사</span><span><i style="background:#8fd19a"></i>개인</span></div>
+    <details class="legend"><summary>색 설명</summary><span><i style="background:#ffcf6b"></i>내가 집중</span><span><i style="background:#6be3ff"></i>백그라운드</span><span><i style="background:#ff8a70"></i>리뷰 요청</span><span><i style="background:#c9a7ff"></i>보낸 리뷰</span><span><i style="background:#7fa7d6"></i>회사</span><span><i style="background:#8fd19a"></i>개인</span></details>
     <h2>내가 집중하는 일 · 최대 4</h2>
     <ul id="focus"></ul>
     <h2>백그라운드</h2>

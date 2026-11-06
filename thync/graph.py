@@ -113,7 +113,9 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
     for s, last, subs in sessions:
         age = now - last
         recent_prompts = [p for p in s.prompts if epoch(p[0]) > now - FOCUS_SEC]
-        claude_working = (s.claude_turn and age < RUNNING_STALE_SEC) or subs > 0
+        waiting = s.waiting if s.waiting and now - epoch(s.waiting["at"]) < LIVE_SESSION_SEC else None
+        # A session waiting on my answer is my turn, not background work.
+        claude_working = not waiting and ((s.claude_turn and age < RUNNING_STALE_SEC) or subs > 0)
         last_prompt_at = epoch(s.prompts[-1][0])
         # A session thync started for a handed-off PR begins with '/<skill> <pr url>'.
         first = s.prompts[0][1].split()
@@ -139,7 +141,7 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
                    focus_prompts=len(recent_prompts), subagents=subs, claude_working=claude_working,
                    last_at=last_prompt_at, act=model.retention(age), reflex=reflex_url,
                    last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey,
-                   waiting=s.waiting if s.waiting and now - epoch(s.waiting["at"]) < LIVE_SESSION_SEC else None)
+                   waiting=waiting)
 
         if reflex_url:
             edge(sid, f"pr:{reflex_url}")
