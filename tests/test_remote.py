@@ -129,6 +129,24 @@ class HubTest(unittest.TestCase):
         self.assertEqual(status, 204)
         self.assertEqual(ask.poll("q-remote"), ["A"])
 
+    def test_a_question_only_the_hook_knows_reaches_the_hub_and_gets_its_answer(self):
+        # Claude Code logs the question only after the hook returns; the hook announces it with POST /ask.
+        quiet = session_log(self.dir, "dddd-quiet", "/home/me/work/app")
+        with mock.patch.object(export, "load_sessions", return_value=[(quiet, time.time() - 5, 0)]):
+            self.r.fetch()
+            self.assertIsNone(self.r.sessions[0].waiting)  # the log alone shows nothing
+            status, _ = self.r.post("/ask", {"id": "q-hook", "session": "dddd-quiet",
+                                             "questions": [{"question": "어느 색?", "options": [{"label": "빨강"}]}]})
+            self.assertEqual(status, 204)
+            self.r.fetch()
+        [s] = self.r.sessions
+        self.assertEqual((s.waiting["id"], s.waiting["questions"][0]["options"], s.answerable), ("q-hook", ["빨강"], True))
+        self.assertIs(remote.owner_of_question("q-hook"), self.r)
+        status, _ = self.r.post("/answer", {"id": "q-hook", "answers": ["빨강"]})
+        self.assertEqual(status, 204)
+        self.assertEqual(ask.poll("q-hook"), ["빨강"])  # what the hook on that machine collects
+        self.assertIsNone(ask.held_for("dddd-quiet"))  # answered: no longer shown as waiting
+
     def test_forwarded_handoff_uses_the_node_it_is_sent(self):
         self.r.fetch()
         node = {"id": "pr:https://github.com/o/r/pull/3", "roles": ["sent"],

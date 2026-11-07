@@ -20,6 +20,7 @@ TEXT_MAX = 300
 
 
 def session_dict(s, last: float, subs: int, now: float, reflexes: dict) -> dict:
+    waiting = s.waiting or ask.held_for(s.id)  # a question hook holds it before the log has it
     keep = [p for p in s.prompts[1:-1] if epoch(p[0]) > now - FOCUS_SEC]
     prompts = [s.prompts[0], *keep, s.prompts[-1]] if len(s.prompts) > 1 else list(s.prompts)
     return {
@@ -28,10 +29,10 @@ def session_dict(s, last: float, subs: int, now: float, reflexes: dict) -> dict:
         "prs": s.prs,
         "files": {f: t for f, t in s.files.items() if epoch(t) > now - FILES_SEC},
         "events": [e for e in s.events if epoch(e[0]) > now - ACTIVITY_SEC],
-        "claude_turn": s.claude_turn, "waiting": s.waiting, "last_at": s.last_at,
+        "claude_turn": s.claude_turn, "waiting": waiting, "last_at": s.last_at,
         "last": last, "subs": subs,
         "profile": profile_of(s.cwd), "repo": repo_of(s.cwd), "reflex": reflex_of(s, reflexes),
-        "answerable": bool(s.waiting) and ask.answerable(s.waiting["id"]),
+        "answerable": bool(waiting) and ask.answerable(waiting["id"]),
     }
 
 

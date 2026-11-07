@@ -87,7 +87,7 @@ Claude Code 세션이 시작되거나 대화가 압축(compact)된 직후, thync
 
 ## 선택 대기 질문에 thync 에서 답하기 (PreToolUse hook)
 
-Claude Code 세션이 선택지 질문(AskUserQuestion)을 띄우기 직전에 hook 이 질문을 잡아 두고 thync 의 답을 기다리게 할 수 있습니다. 그동안 '선택 대기' 모달에 선택지와 직접 입력 칸, '보내기' 버튼이 생기고, 보낸 답은 그대로 세션에 전달됩니다. 기다리는 동안에는 세션 화면에 질문이 뜨지 않습니다. `ask_wait_sec`(기본 300초) 안에 답하지 않거나 thync 서버가 꺼져 있으면 hook 이 비켜서고, 세션이 평소처럼 직접 묻습니다. 계획 승인(ExitPlanMode)과 Codex 질문은 thync 에서 답할 수 없고, 모달에 내용만 보여 줍니다.
+Claude Code 세션이 선택지 질문(AskUserQuestion)을 띄우기 직전에 hook 이 질문을 잡아 두고 thync 의 답을 기다리게 할 수 있습니다. 그동안 '선택 대기' 모달에 선택지와 직접 입력 칸, '보내기' 버튼이 생기고, 보낸 답은 그대로 세션에 전달됩니다. 기다리는 동안에는 세션 화면에 질문이 뜨지 않습니다. `ask_wait_sec`(기본 300초) 안에 답하지 않거나 thync 서버가 꺼져 있으면 hook 이 비켜서고, 세션이 평소처럼 직접 묻습니다. 계획 승인(ExitPlanMode)과 Codex 질문은 thync 에서 답할 수 없고, 모달에 내용만 보여 줍니다. Claude Code 는 hook 이 끝난 뒤에야 질문을 세션 로그에 적기 때문에, hook 이 기다리기 시작할 때 질문을 thync 에 직접 알립니다(`POST /ask`). 허브가 보여 주는 다른 서버의 세션도 같은 방식으로 질문이 뜨고, 고른 답은 그 서버로 전달됩니다.
 
 `~/.claude/settings.json` 의 `hooks` 에 다음을 더합니다. `timeout` 은 `ask_wait_sec` 보다 길게 둡니다.
 

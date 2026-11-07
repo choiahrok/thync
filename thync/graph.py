@@ -168,6 +168,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         age = now - last
         recent_prompts = [p for p in s.prompts if epoch(p[0]) > now - FOCUS_SEC]
         waiting = s.waiting if s.waiting and now - epoch(s.waiting["at"]) < LIVE_SESSION_SEC else None
+        if not waiting and not getattr(s, "host", ""):
+            waiting = ask.held_for(s.id)  # a question hook holds it; the log gets it only once answered
         # A session waiting on my answer is my turn, not background work.
         claude_working = not waiting and ((s.claude_turn and age < RUNNING_STALE_SEC) or subs > 0)
         last_prompt_at = epoch(s.prompts[-1][0])

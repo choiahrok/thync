@@ -27,7 +27,7 @@ from .export import snapshot
 from .graph import build_graph
 from .reflex import start_reflex
 from .sources import github, jira, notion, remote
-from .sources.claude_code import load_sessions
+from .sources.claude_code import load_sessions, questions_of
 from .store import BOARD_COLUMNS, load_token, save_card, save_name
 
 TOKEN = ""
@@ -142,7 +142,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.local_host() or not self.authorized():
             return
         handler = {"/reflex": self.post_reflex, "/board": self.post_board, "/rename": self.post_rename,
-                   "/answer": self.post_answer}.get(
+                   "/answer": self.post_answer, "/ask": self.post_ask}.get(
             urlparse(self.path).path)
         if not handler:
             self.send_error(404)
@@ -213,6 +213,18 @@ class Handler(SimpleHTTPRequestHandler):
             return
         status, message = start_reflex(target, approve)
         self.send_json(status, {"message": message})
+
+    def post_ask(self):
+        """The question hook announces the question it holds (ask.py), since the session log has it only later."""
+        body = self.read_body(32768)
+        qid, session = str(body["id"])[:200], str(body["session"])[:200]
+        if not qid or not session or not isinstance(body.get("questions"), list):
+            raise ValueError("bad question")
+        at = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+        ask.hold(qid, session, {"id": qid, "at": at, "tool": "AskUserQuestion",
+                                "questions": questions_of("AskUserQuestion", {"questions": body["questions"]})})
+        self.send_response(204)
+        self.end_headers()
 
     def post_answer(self):
         body = self.read_body(8192)
