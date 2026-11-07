@@ -15,7 +15,7 @@
     #stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     #brain { position: relative; flex: 1 1 58%; min-height: 0; }
     #graph { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
-    #hud { position: absolute; top: 14px; left: 16px; display: flex; gap: 12px; align-items: center;
+    #hud { position: absolute; top: 14px; left: 16px; right: 140px; display: flex; gap: 12px; align-items: flex-start;
       font: 12px "JetBrains Mono", Menlo, monospace; letter-spacing: .08em; color: var(--quiet); }
     #hud b { color: var(--ink); }
     #rotate { position: absolute; top: 10px; right: 16px; height: 28px; padding: 0 12px; background: rgba(12, 11, 14, .6);
@@ -27,7 +27,7 @@
     @keyframes beat { 50% { transform: scale(1.6); opacity: .6; } }
     #live { position: absolute; right: 16px; bottom: 12px; width: min(560px, calc(100% - 32px)); list-style: none;
       margin: 0; padding: 0; font-size: 12px; pointer-events: auto; }
-    #live li { display: grid; grid-template-columns: 62px 150px 1fr; gap: 8px; padding: 3px 8px; border: 0;
+    #live li { display: grid; grid-template-columns: 96px 150px 1fr; gap: 8px; padding: 3px 8px; border: 0;
       border-left: 2px solid var(--line); border-radius: 0; background: rgba(12, 11, 14, .55); white-space: nowrap; }
     #live li.prompt { border-left-color: #ffcf6b; } #live li.tool { border-left-color: #6be3ff; }
     #live time { color: var(--quiet); font: 11px Menlo, monospace; }
@@ -83,7 +83,7 @@
     .card .tags i.moved { cursor: pointer; }
     .card .note { font-size: 11.5px; color: var(--ink); margin-top: 6px; white-space: pre-wrap; border-left: 2px solid var(--line); padding-left: 6px; }
     .card .tags i.moved { color: #ffcf6b; border-color: rgba(255, 207, 107, .4); }
-    #help { position: absolute; bottom: 14px; left: 16px; font: 11px Menlo, monospace; color: var(--quiet); }
+    #help { position: absolute; top: 44px; right: 16px; font: 11px Menlo, monospace; color: var(--quiet); cursor: help; }
     aside { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 16px; }
     .seg { display: flex; gap: 4px; margin-bottom: 18px; }
     .seg button { flex: 1; background: none; border: 1px solid var(--line); color: var(--quiet); border-radius: 6px;
@@ -173,7 +173,7 @@
       <div id="hud"><span class="dot"></span><b>THYNC</b><span id="status">불러오는 중</span></div>
       <button id="rotate" type="button"></button>
       <ul id="live"></ul>
-      <div id="help">드래그 회전 · 스크롤 확대 · 노드 클릭 선택 · PR 노드를 맨 아래 줄기에 놓으면 리뷰 작업을 맡김 · 카드는 끌어서 옮기고 두 번 눌러 고침</div>
+      <div id="help" title="드래그 회전 · 스크롤 확대 · 노드 클릭 선택 · PR 노드를 맨 아래 줄기에 놓으면 리뷰 작업을 맡김 · 카드는 끌어서 옮기고 두 번 눌러 고침">? 조작법</div>
     </div>
     <div id="splitter" title="끌어서 칸반 높이 바꾸기 · 두 번 누르면 원래대로" aria-label="칸반 높이 조절" role="separator" aria-orientation="horizontal"></div>
     <div id="boardbar"><span class="modes"><button data-mode="both">뇌 + 칸반</button><button data-mode="brain">뇌만</button><button data-mode="board">칸반만</button></span><span id="board-hint">끌어서 옮기기 · 제목이나 메모를 두 번 눌러 바로 고치기 · 카드 하나 = Markdown 파일 하나</span><button id="add-card">+ 카드</button></div>

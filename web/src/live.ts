@@ -27,9 +27,9 @@ export function renderLive(): void {
   // Nothing bursts on the first load; afterwards each new event bursts from its session.
   if (lastEventAt) for (const e of events) if (e.at > lastEventAt) renderer.burst(e.session);
   lastEventAt = events[0]?.at ?? lastEventAt;
-  liveList.replaceChildren(...events.slice(0, 5).map((e, i) => {
+  liveList.replaceChildren(...events.slice(0, 3).map((e, i) => {
     const li = Object.assign(document.createElement("li"), { className: e.kind });
-    li.style.opacity = String(1 - i * 0.15);
+    li.style.opacity = String(1 - i * 0.25);
     li.append(Object.assign(document.createElement("time"), { textContent: clock(e.at) }),
       Object.assign(document.createElement("b"), { textContent: cut(e.title, 22) }),
       Object.assign(document.createElement("span"), { textContent: e.text }));

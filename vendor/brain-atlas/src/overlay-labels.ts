@@ -224,7 +224,8 @@ export function drawNodeLabels(
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 
-  const labels = new Set(automaticLabelIds(graph, nodeProjs, mobile, width, zoom));
+  // thync: no automatic node labels; unit titles already name the work, and nodes show their name on hover or click.
+  const labels = new Set<string>();
 
   if (hoverId) labels.add(hoverId);
   if (focusId) {

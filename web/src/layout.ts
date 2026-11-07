@@ -114,7 +114,10 @@ export function toGraph(): BrainGraph {
   const idx: Record<string, BrainNode> = {};
   const adj: Record<string, string[]> = {};
   for (const n of nodes) { idx[n.id] = n; adj[n.id] = []; }
-  const edges: BrainEdge[] = state.data.edges.filter(([a, b]) => idx[a] && idx[b]).map(([a, b]) => ({ a, b }));
+  // Lines only between nodes of notable units; dim dots stay unconnected so they read as background.
+  const unitOf = new Map(keep.map((n) => [n.id, String(n.detail.unit)]));
+  const edges: BrainEdge[] = state.data.edges
+    .filter(([a, b]) => idx[a] && idx[b] && notable.has(unitOf.get(a)!) && notable.has(unitOf.get(b)!)).map(([a, b]) => ({ a, b }));
   for (const e of edges) { adj[e.a].push(e.b); adj[e.b].push(e.a); }
   for (const n of nodes) n.degree = adj[n.id].length;
 
@@ -124,9 +127,12 @@ export function toGraph(): BrainGraph {
     ...titled.map((u) => {
       const t = tiers.get(u.id)!;
       const spot = anchorOf.get(u.id)!;
+      // A unit named after its repository or branch is titled by what I asked last; the folder goes below.
+      const byFolder = u.id.startsWith("repo:") || u.id.startsWith("branch:");
+      const [main, rest] = byFolder && u.title ? [u.title, u.name] : [u.name, u.name !== u.title ? u.title : ""];
       return {
-        title: cut(u.name, 24),
-        sub: cut([TIER_NAME[t], u.name !== u.title ? u.title : u.sessions ? `세션 ${u.sessions}개` : ""].filter(Boolean).join(" · ")),
+        title: cut(main, 24),
+        sub: cut([TIER_NAME[t], rest || (u.sessions > 1 ? `세션 ${u.sessions}개` : "")].filter(Boolean).join(" · ")),
         at: { x: spot.x, y: spot.y + 0.2, z: spot.z },
         color: unitColor(u.id, keep)
       };
