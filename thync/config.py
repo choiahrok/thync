@@ -35,10 +35,19 @@ REFLEX_SKILL = {"sent": "pr-review-watch", **CONFIG.get("reflex_skills", {})}
 # Where work comes from: "claude_code" and "codex" (session logs), "github" (reviews, my PRs, my commits), "jira",
 # "notion".
 SOURCES = set(CONFIG.get("sources", ["claude_code", "codex", "github", "jira", "notion"]))
-SESSIONS = bool({"claude_code", "codex"} & SOURCES)
+# Other machines whose sessions this thync shows too. Each runs its own thync and is reached over SSH:
+# [{"name": "devbox1", "ssh": "devbox1"}] (docs/configuration.md, "여러 서버를 한 화면에서").
+REMOTES = [{"name": str(r["name"]), "ssh": str(r["ssh"]), "port": int(r.get("port", 8765)),
+            "thync_home": str(r.get("thync_home", "~/.thync"))}
+           for r in CONFIG.get("remotes", []) if isinstance(r, dict) and r.get("name") and r.get("ssh")]
+# The remote that runs PRs handed off to Claude (its clones, its tmux); "" runs them on this machine.
+REFLEX_HOST = str(CONFIG.get("reflex_host", ""))
+if REFLEX_HOST not in {r["name"] for r in REMOTES}:
+    REFLEX_HOST = ""
+SESSIONS = bool({"claude_code", "codex"} & SOURCES) or bool(REMOTES)
 NOTION_USER = CONFIG.get("notion_user_id", "")  # only pages last edited by this Notion user; empty = every page
 # Handing PRs off to Claude needs the claude CLI and the session logs it writes.
-HANDOFF = "claude_code" in SOURCES and shutil.which("claude") is not None
+HANDOFF = bool(REFLEX_HOST) or ("claude_code" in SOURCES and shutil.which("claude") is not None)
 # How long the AskUserQuestion hook holds a question for an answer from thync before the session asks itself.
 ASK_WAIT_SEC = int(CONFIG.get("ask_wait_sec", 300))
 HOST = "127.0.0.1"

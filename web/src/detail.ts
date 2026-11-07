@@ -11,7 +11,7 @@ export const detailBox = document.querySelector<HTMLDivElement>("#detail")!;
 
 const DETAIL_LABEL: Record<string, string> = {
   text: "내용", last_prompt: "마지막 입력", author: "작성자", reviewers: "리뷰 대기", review_state: "리뷰 상태",
-  jira_status: "Jira 상태", cwd: "작업 폴더", branch: "브랜치", url: "링크" };
+  jira_status: "Jira 상태", host: "서버", cwd: "작업 폴더", branch: "브랜치", url: "링크" };
 
 let shownId: string | null = null;
 

@@ -41,7 +41,8 @@ const STATE_ORDER: Record<string, number> = { "수정 요청": 0, "승인됨": 1
 export function renderPanel(): void {
   const visible = shown();
   const sources = visible.filter(isSource);
-  const sub = (n: ApiNode): string => `${n.profile} · ${String(n.detail.branch || n.detail.kind_label)} · ${ago(Number(n.detail.updated))}`;
+  // A session on another machine names it first.
+  const sub = (n: ApiNode): string => `${n.detail.host ? `${String(n.detail.host)} · ` : ""}${n.profile} · ${String(n.detail.branch || n.detail.kind_label)} · ${ago(Number(n.detail.updated))}`;
   // A session says how much I prompted; a branch, ticket or page says what its last activity was.
   const what = (n: ApiNode): string => n.kind === "workThread"
     ? `${n.detail.waiting ? "선택 대기 · " : ""}${n.detail.claude_working ? `${n.detail.source === "codex" ? "Codex" : "Claude"} 작업 중 · ` : ""}최근 1시간 프롬프트 ${n.detail.focus_prompts}개 · `
@@ -81,5 +82,7 @@ export function renderPanel(): void {
     return li;
   }), "받은 리뷰 없음");
 
-  setStatus(`몰입 ${Math.round(state.data.focus_level * 100)}% · 작업공간 ${focused.length}/4 · 백그라운드 ${running.length} · 리뷰 ${reviews.length} · ${new Date(state.data.generated * 1000).toLocaleTimeString()}`);
+  // Each remote: ✓ while its sessions come in, ✕ with the reason when it cannot be reached.
+  const hosts = (state.data.hosts ?? []).map((h) => h.ok ? `${h.name} ✓` : `${h.name} ✕ ${h.error}${h.seen ? ` (마지막 수신 ${ago(h.seen)})` : ""}`);
+  setStatus(`몰입 ${Math.round(state.data.focus_level * 100)}% · 작업공간 ${focused.length}/4 · 백그라운드 ${running.length} · 리뷰 ${reviews.length} · ${new Date(state.data.generated * 1000).toLocaleTimeString()}${hosts.length ? ` · ${hosts.join(" · ")}` : ""}`);
 }

@@ -80,6 +80,8 @@ flowchart TD
 | `sources/codex.py` | Codex CLI 세션 로그의 한 줄을 해석합니다. 사용자 메시지는 프롬프트, 도구 호출은 활동으로 기록합니다 |
 | `sources/github.py` | `gh`로 리뷰 요청, 내 PR, 내 커밋을 조회합니다. 커밋은 `search/commits`(`author:@me`, 기본 브랜치만 검색 대상)와 내 PushEvent(브랜치별 마지막 push, 그 head 커밋 메시지)를 합칩니다. 백그라운드 스레드는 1분마다 갱신을 시도하고 결과를 기본 120초 동안 재사용합니다 |
 | `sources/jira.py` | `jira.json`의 티켓 요약과 에픽, 브랜치·제목에서 Jira 키 찾기. 설정하면 백그라운드 스레드가 그래프에 나온 키와 나에게 배정된 티켓(`/rest/api/3/search/jql`)을 Jira REST API로 받아 `jira.json`을 갱신하고, 배정된 티켓에 `mine: true`를 기록합니다 |
+| `sources/remote.py` | 다른 서버의 세션(`remotes` 설정). 서버마다 SSH 터널을 하나 열어 두고, 그 서버 thync 의 `/sessions.json`을 1.5초마다 읽어 이 서버의 세션 옆에 놓습니다. 바뀌지 않은 응답은 ETag 로 건너뜁니다. 터널이 끊기면 최대 30초 간격으로 다시 엽니다 |
+| `export.py` | `GET /sessions.json`. 이 서버의 세션을 그래프가 읽는 만큼만 잘라 내보냅니다. 프로필·저장소·PR 위임 여부·답할 수 있는 질문인지처럼 이 서버만 아는 값을 여기서 정합니다 |
 | `sources/notion.py` | Notion API `POST /v1/search`로 최근에 고친 페이지를 받습니다. 토큰이 있을 때 백그라운드 스레드가 1분마다 갱신을 시도하고 결과를 기본 120초 동안 재사용합니다 |
 | `graph.py` | 출처를 모아 노드·연결·작업 단위·활동 목록을 만듭니다 |
 | `model.py` | 연구에서 가져온 규칙으로 밝기, 상태, 작업공간, 진행 중 여부를 정합니다 ([brain-model.md](brain-model.md)) |
@@ -124,8 +126,9 @@ flowchart TD
 | `units[]` | 작업 단위: `id`, `name`, `auto_name`, `title`(세션 모드에서는 가장 최근 세션 제목), `profile`, `sessions`, `keys`, `working`, `count`, `updated`, `glow` |
 | `nodes[]` | `id`, `name`, `kind`, `profile`, `glow`, `status`(`active`·`dormantRelevant`·`archived`), `roles`(`focus`·`running`·`review`·`sent`), `detail`(아래) |
 | `edges[]` | 노드 id 두 개 |
+| `hosts[]` | `remotes`에 적은 다른 서버의 상태: `name`, `ok`, `error`(연결되지 않은 이유), `seen`(마지막으로 받은 시각, 초). 없으면 빈 목록 |
 | `received[]` | 내 PR 에 다른 사람이 남긴 리뷰(리뷰어마다 가장 최근 것), 최신순 최대 30개: `pr`(PR 노드 id), `author`, `state`, `at`, `text`(본문 앞 300자) |
-| `activity[]` | 최근 활동(세션 로그를 읽으면 30분, 아니면 24시간): `at`, `kind`(`prompt`·`tool`·`commit`·`jira`·`notion`), `text`, `session`(활동한 노드 id), `title`, `profile` |
+| `activity[]` | 최근 활동(세션 로그를 읽으면 30분, 아니면 24시간): `at`, `kind`(`prompt`·`tool`·`commit`·`jira`·`notion`), `text`, `session`(활동한 노드 id), `title`, `profile`, `host`(다른 서버의 세션이면 그 이름) |
 | `board[]` | 칸반 카드: `id`, `title`, `sub`, `column`, `auto_column`, `moved`, `note`, `file`, `profile`, `updated`, `focus`, `tags` |
 
 ### 노드 종류
@@ -154,6 +157,7 @@ flowchart TD
 | `kind_label`, `text` | 종류 표시와 설명 |
 | `url` | 관련 항목 링크 |
 | `repo`, `branch`, `cwd` | 저장소·브랜치·작업 폴더 |
+| `host` | 세션과 파일이 있는 서버 이름(`remotes`의 `name`). 이 서버의 것이면 빈 문자열. 다른 서버의 파일 노드 id 는 `file:<host>:<경로>`입니다 |
 | `updated`, `last_at` | 갱신 시각과 활동 출처의 마지막 활동 시각(초) |
 | `claude_working`, `subagents` | Claude 작업 여부와 하위 에이전트 수 |
 | `reflex` | 맡긴 PR 주소 |
@@ -183,7 +187,10 @@ flowchart TD
 | `GET /answer?id=` | 없음 | 질문 hook 이 1초마다 묻습니다. 화면에서 고른 답이 있으면 `200`과 질문 순서대로 된 답 목록, 없으면 `204`. 이 요청이 5초 안에 있었던 질문만 노드의 `waiting.answerable`이 `true`가 됩니다 |
 | `POST /answer` | `{id, answers[]}` | 화면에서 고른 답을 hook 에 넘깁니다. hook 이 기다리지 않는 질문이면 `409` |
 | `POST /board` | `{id, column?, title?, note?, reset?}` 또는 `{new: true, title, column?, profile?}` | 카드 파일을 고치거나 새 카드를 만듭니다 |
-| `POST /reflex` | `{id, approve?}` | PR 노드를 Claude에게 맡깁니다 |
+| `POST /reflex` | `{id, approve?}` 또는 `{node, approve?}` | PR 노드를 Claude에게 맡깁니다. `reflex_host`가 있으면 노드를 그 서버로 넘기고, 넘겨받은 서버는 `node`를 그대로 씁니다 |
+| `GET /sessions.json?days=` | 없음 | 다른 서버의 허브가 1.5초마다 읽습니다. `sessions[]`(세션 하나에 `id`, `source`, `cwd`, `branch`, `title`, `ai_title`, `prompts`(첫 프롬프트, 최근 집중 창 안의 프롬프트, 마지막 프롬프트), `prs`, `files`(최근 1시간), `events`(최근 활동 창), `claude_turn`, `waiting`, `last_at`, `last`, `subs`, `profile`, `repo`, `reflex`, `answerable`)과 `reflexes`(이 서버가 실행 중인 PR 위임, tmux 면 `alive`). `ETag`가 같으면 `304`, `Accept-Encoding: gzip`이면 압축합니다 |
+
+허브가 다른 서버로 넘기는 요청(`/answer`, `/reflex`)에는 `X-Thync-Forwarded: 1`이 붙고, 받은 서버는 그 요청을 다시 넘기지 않습니다. 다른 서버 세션의 질문에 대한 `POST /answer`는 그 서버로 넘어가, 그 서버의 질문 hook 이 답을 가져갑니다.
 
 `/rename`과 `/board` 성공 응답은 본문 없는 `204`입니다. `/reflex`는 HTTP 상태와 함께 `{"message": "..."}`를 돌려주며, 시작 성공은 `202`, 이미 실행 중이면 `409`, 위임 기능이 꺼져 있으면 `503`입니다. 토큰이 없거나 틀리면 `401`, 로컬 호스트가 아닌 `Host`이면 `403`을 반환합니다.
 

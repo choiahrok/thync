@@ -6,6 +6,7 @@ card's Markdown file wins over the automatic one, which stays in `auto_column` s
 """
 from .config import HANDOFF, JIRA_DONE, JIRA_TODO, PROFILE_PERSONAL, PROFILE_WORK
 from .reflex import tmux_alive
+from .sources import remote
 from .store import BOARD_COLUMNS, load_reflexes
 
 REVIEW_STATUS = {"running": "리뷰 중", "posted": "리뷰 올림", "approved": "리뷰 올리고 승인함", "failed": "실패",
@@ -71,12 +72,15 @@ def build_board(units: dict, nodes: dict, names: dict, card_files: dict) -> list
 
     # Work handed off to Claude: one card per PR.
     handed = {n["detail"]["reflex"]: n for n in nodes.values() if n["kind"] == "workThread" and n["detail"].get("reflex")}
-    for url, r in (load_reflexes() if HANDOFF else {}).items():
+    # Hand-offs a remote runs come with its tmux state; there `tmux attach` needs an ssh first.
+    for url, r in {**(load_reflexes() if HANDOFF else {}), **remote.reflexes()}.items():
         pr = nodes.get(f"pr:{url}")
         session = handed.get(url)
         if "tmux" in r:
-            alive = tmux_alive(r["tmux"])
-            tags = [r["skill"], "돌고 있음" if alive else "끝남", f"tmux attach -t {r['tmux']}" if alive else ""]
+            alive = r["alive"] if "host" in r else tmux_alive(r["tmux"])
+            attach = f"tmux attach -t {r['tmux']}"
+            tags = [r["skill"], "돌고 있음" if alive else "끝남",
+                    (f"ssh -t {r['ssh']} {attach}" if "host" in r else attach) if alive else ""]
         else:  # a review thync runs itself
             tags = [r.get("skill", ""), "지적 없으면 approve" if r.get("approve") else "",
                     REVIEW_STATUS.get(r.get("status"), ""), r.get("error", "")]
