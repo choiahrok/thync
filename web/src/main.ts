@@ -8,14 +8,17 @@ import { reactToChanges, renderLive, resetLive } from "./live.ts";
 import { renderPanel, setStatus } from "./panel.ts";
 import { openReflex } from "./reflex.ts";
 import { renderer } from "./renderer.ts";
-import { recall, remember, state } from "./state.ts";
-import { colorOf, isHub } from "./style.ts";
+import { notableUnits, recall, remember, shown, state } from "./state.ts";
+import { colorOf, look } from "./style.ts";
 import { checkWaiting } from "./waiting.ts";
 
 /** Redraw everything from state.data. The graph is rebuilt only when its shape changed, so nodes keep their places. */
 export function apply(): void {
   const d = state.data;
-  const sig = [state.profile, state.showAll, state.days, d.units.map((u) => u.id).join(","), d.nodes.map((n) => n.id).join(","), d.edges.length].join("|");
+  // Which units carry a title is part of the shape: a unit gaining or losing focus re-lays the titles.
+  const notable = notableUnits(shown());
+  const sig = [state.profile, state.showAll, state.days, d.units.map((u) => u.id).join(","), d.nodes.map((n) => n.id).join(","), d.edges.length,
+    [...notable].sort().join(",")].join("|");
   if (sig !== state.signature) {
     state.signature = sig;
     state.graph = toGraph();
@@ -23,9 +26,10 @@ export function apply(): void {
     for (const n of d.nodes) {
       const g = state.graph.idx[n.id];
       if (!g) continue;
-      g.glow = n.glow;
-      g.status = n.status;
-      g.hub = isHub(n);
+      const l = look(n, notable);
+      g.glow = l.glow;
+      g.status = l.status;
+      g.hub = l.hub;
       g.color = colorOf(n);
     }
   }

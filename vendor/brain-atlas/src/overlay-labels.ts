@@ -237,9 +237,10 @@ export function drawNodeLabels(
 
   for (const projected of nodeProjs) {
     if (!labels.has(projected.node.id)) continue;
-    if (projected.z > 0.25 && !projected.node.hub) continue;
+    // thync: the hovered node always shows its name, even a dim dot at the back
+    if (projected.z > 0.25 && !projected.node.hub && projected.node.id !== hoverId) continue;
     const radius = nodeRadius(projected.node) * Math.max(0.6, projected.scale);
-    const alpha = Math.max(0.2, 1 - projected.depth * 0.7) * lobeMul(projected.node._lobeName);
+    const alpha = projected.node.id === hoverId ? 1 : Math.max(0.2, 1 - projected.depth * 0.7) * lobeMul(projected.node._lobeName);
     if (alpha < 0.1) continue;
     const label = displayNodeName(projected.node);
     const labelWidth = ctx.measureText(label).width;

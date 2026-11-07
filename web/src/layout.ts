@@ -9,8 +9,8 @@
 import { CHAOS, KIND_LABEL } from "../../vendor/brain-atlas/src/palette.ts";
 import { LOBE_CENTERS, spinePoint } from "../../vendor/brain-atlas/src/shape.ts";
 import type { BrainEdge, BrainGraph, BrainNode, LobeName, Vec3 } from "../../vendor/brain-atlas/src/types.ts";
-import { isSource, shown, state } from "./state.ts";
-import { ROLE_COLOR, ROLE_ORDER, colorOf, cut, isHub, palette, profileColor } from "./style.ts";
+import { isSource, notableUnits, shown, state } from "./state.ts";
+import { ROLE_COLOR, ROLE_ORDER, colorOf, cut, look, palette, profileColor } from "./style.ts";
 import type { ApiNode, ApiUnit } from "./types.ts";
 
 const TIER_SPOTS: Vec3[][] = [
@@ -71,6 +71,7 @@ export function unitColor(unit: string, ns: ApiNode[]): string {
 
 export function toGraph(): BrainGraph {
   const keep = shown();
+  const notable = notableUnits(keep);
   const present = new Set(keep.map((n) => String(n.detail.unit)));
   const units = state.data.units.filter((u) => present.has(u.id));
   const sessionsOf = (u: ApiUnit) => keep.filter((n) => isSource(n) && n.detail.unit === u.id && !n.detail.reflex);
@@ -101,11 +102,12 @@ export function toGraph(): BrainGraph {
     const spread = TIER_SPREAD[tier] * (hubLike ? 0.45 : 1);
     const own = COLLECTION_UNITS.has(unit) ? tierSpot(tier, hash(n.id) % (TIER_SPOTS[tier].length * 2)) : undefined;
     const p = spineAt.get(n.id) ?? placeNear(n.id, own ?? anchorOf.get(unit) ?? TIER_SPOTS[2][0], own ? 0.05 : spread);
+    const l = look(n, notable);
     return {
       id: n.id, name: n.name, title: n.name, kind: n.kind,
       kindLabel: String(n.detail.kind_label ?? KIND_LABEL[n.kind]),
-      status: n.status, hub: isHub(n), degree: 0, color: colorOf(n),
-      path: `${unit}/${n.name}`, classificationSource: "default", glow: n.glow,
+      status: l.status, hub: l.hub, degree: 0, color: colorOf(n),
+      path: `${unit}/${n.name}`, classificationSource: "default", glow: l.glow,
       _3dLobe: p, _lobeName: nearestLobe(p)
     };
   });
@@ -116,9 +118,8 @@ export function toGraph(): BrainGraph {
   for (const e of edges) { adj[e.a].push(e.b); adj[e.b].push(e.a); }
   for (const n of nodes) n.degree = adj[n.id].length;
 
-  // Front tiers first, so when titles crowd the overlay keeps the ones I am focused on.
-  const titled = units.filter((u) => tiers.get(u.id)! <= 3).sort((a, b) => tiers.get(a.id)! - tiers.get(b.id)!);
-  const auto = units.filter((u) => tiers.get(u.id) === 4);
+  // Only notable units get a title, front tiers first so a crowded overlay keeps the ones I am focused on.
+  const titled = units.filter((u) => notable.has(u.id)).sort((a, b) => tiers.get(a.id)! - tiers.get(b.id)!);
   const clusterTitles = [
     ...titled.map((u) => {
       const t = tiers.get(u.id)!;
@@ -130,8 +131,6 @@ export function toGraph(): BrainGraph {
         color: unitColor(u.id, keep)
       };
     }),
-    ...(auto.length ? [{ title: TIER_NAME[4], sub: cut(auto.map((u) => u.name).join(", "), 40),
-      at: { ...TIER_SPOTS[4][0], x: 0.3, y: TIER_SPOTS[4][0].y + 0.12 }, color: ROLE_COLOR.sent }] : []),
     ...(reflexes.length ? [{ title: `맡긴 일 ${reflexes.length}`, sub: cut(reflexes.map((n) => n.name).join(", ")),
       at: { ...spinePoint(0.5), x: 0.12 }, color: ROLE_COLOR.running }] : [])
   ];

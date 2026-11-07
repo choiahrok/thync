@@ -26,6 +26,51 @@ def profile_of(cwd: str) -> str:
     return PROFILE_WORK if any(cwd.startswith(r) for r in COMPANY_ROOTS) else PROFILE_PERSONAL
 
 
+UNIT_RANK = ("jira:", "branch:", "repo:")  # which unit survives a merge: a ticket, else a branch, else a repository
+
+
+def merge_units(units: dict, links: dict[str, set[str]]) -> dict[str, str]:
+    """Join units that share a PR or a Jira key: the same work split across branches or sessions (a review
+    loop on its own branch, a session that only names the PR). Mutates `units`; returns {absorbed: kept}."""
+    parent = {u: u for u in links if u in units}
+
+    def find(u: str) -> str:
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]
+            u = parent[u]
+        return u
+
+    owner: dict[str, str] = {}
+    for u in parent:
+        for token in links[u]:
+            if token in owner:
+                parent[find(u)] = find(owner[token])
+            else:
+                owner[token] = u
+    groups: dict[str, list[str]] = {}
+    for u in parent:
+        groups.setdefault(find(u), []).append(u)
+    moved = {}
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        rank = lambda u: next((i for i, p in enumerate(UNIT_RANK) if u.startswith(p)), len(UNIT_RANK))  # noqa: E731
+        keep = min(members, key=lambda u: (rank(u), -units[u]["updated"], u))
+        k = units[keep]
+        for u in members:
+            if u == keep:
+                continue
+            o = units.pop(u)
+            if o["updated"] > k["updated"]:
+                k["updated"], k["title"] = o["updated"], o["title"]
+            k["glow"] = max(k["glow"], o["glow"])
+            k["sessions"] += o["sessions"]
+            k["keys"] = sorted(set(k["keys"]) | set(o["keys"]))
+            k["working"] = k["working"] or o["working"]
+            moved[u] = keep
+    return moved
+
+
 def reflex_of(s, reflexes: dict) -> str:
     """The PR url when thync started this session for a handed-off PR (it begins with '/<skill> <pr url>')."""
     first = s.prompts[0][1].split()
@@ -48,6 +93,7 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
     jira = Jira()
     mine = jira.mine() if "jira" in SOURCES else {}
     reflexes = load_reflexes()
+    links: dict[str, set[str]] = {}  # unit -> PRs and Jira keys its sessions touch, for merge_units()
 
     def node(nid, name, kind, profile, glow=0.0, roles=(), **detail):
         n = nodes.setdefault(nid, {"id": nid, "name": name, "kind": kind, "profile": profile,
@@ -168,6 +214,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         for url, (_, prrepo, num) in prs:
             edge(sid, node(f"pr:{url}", f"{prrepo.split('/')[-1]} #{num}", "source", profile,
                            kind_label="PR", url=url, repo=repo, unit=ukey))
+        links.setdefault(ukey, set()).update({f"pr:{url}" for url, _ in prs} | {f"key:{k}" for k in keys}
+                                             | ({f"pr:{reflex_url}"} if reflex_url else set()))
 
         # Files Claude edited in the last hour.
         files = sorted(((fp, ts) for fp, ts in s.files.items() if epoch(ts) > now - FILES_SEC),
@@ -183,6 +231,11 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
             if epoch(ts) > now - ACTIVITY_SEC:
                 activity.append({"at": ts, "kind": kind, "text": text, "session": sid, "title": title,
                                  "profile": profile, "host": host})
+
+    moved = merge_units(units, links)
+    for n in nodes.values():
+        if n["detail"].get("unit") in moved:
+            n["detail"]["unit"] = moved[n["detail"]["unit"]]
 
     # My commits and pushes. The source is the branch; on a default branch the ticket named in the message, else
     # the repository.
