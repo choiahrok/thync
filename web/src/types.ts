@@ -11,7 +11,7 @@ export interface ApiNode {
   status: BrainNode["status"];
   detail: Record<string, string | number | boolean> & { waiting?: Waiting | null };
 }
-export interface ApiEvent { at: string; kind: string; text: string; session: string; title: string; profile: string }
+export interface ApiEvent { at: string; kind: string; text: string; session: string; title: string; profile: string; host?: string }
 export interface ApiUnit {
   id: string; name: string; auto_name?: string; title: string; profile: string; sessions: number; working: boolean; count: number;
 }
@@ -23,7 +23,10 @@ export interface ApiGraph {
   schema: number; board: ApiCard[]; generated: number; focus_level: number; handoff: boolean; units: ApiUnit[]; nodes: ApiNode[];
   edges: [string, string][]; activity: ApiEvent[];
   received: { pr: string; author: string; state: string; at: string; text: string }[];
+  /** Other machines whose sessions this thync shows (config "remotes"), and whether each is reachable now. */
+  hosts?: ApiHost[];
 }
+export interface ApiHost { name: string; ok: boolean; error: string; seen: number }
 
 /** A question a session put to me and I have not answered yet (detail.waiting of a session node). */
 export interface Waiting {

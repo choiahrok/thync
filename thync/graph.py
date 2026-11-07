@@ -12,7 +12,7 @@ from .config import (ACTIVITY_SEC, BACKGROUND_SEC, DEFAULT_DAYS, FILES_PER_SESSI
                      JIRA_DONE, JIRA_TODO, LIVE_FILE_SEC, LIVE_SESSION_SEC, PROFILE_PERSONAL, PROFILE_WORK, PRS_PER_SESSION,
                      RUNNING_STALE_SEC, COMPANY_ROOTS, SESSIONS, SOURCES)
 from .reflex import REFLEX_SKILL
-from .sources import github, notion
+from .sources import github, notion, remote
 from .sources.claude_code import load_sessions, repo_of
 from .sources.jira import BRANCH_KEY, TITLE_KEY, Jira
 from .store import load_names, load_reflexes, read_cards
@@ -26,10 +26,18 @@ def profile_of(cwd: str) -> str:
     return PROFILE_WORK if any(cwd.startswith(r) for r in COMPANY_ROOTS) else PROFILE_PERSONAL
 
 
+def reflex_of(s, reflexes: dict) -> str:
+    """The PR url when thync started this session for a handed-off PR (it begins with '/<skill> <pr url>')."""
+    first = s.prompts[0][1].split()
+    return (first[1] if s.source == "claude_code" and len(first) > 1 and first[0].lstrip("/") in REFLEX_SKILL.values()
+            and first[1] in reflexes else "")
+
+
 def build_graph(days: int = DEFAULT_DAYS) -> dict:
     now = time.time()
     window = days * 86400
-    sessions = load_sessions(now, window) if SESSIONS else []
+    # Sessions on this machine, then those other machines' thync servers report (sources/remote.py).
+    sessions = (load_sessions(now, window) if SESSIONS else []) + remote.sessions(now, window)
     # With session logs the sessions describe my work; commits would only add a unit per branch and merge.
     commits = github.my_commits(now) if "github" in SOURCES and not SESSIONS else []
     pages = notion.recent_pages(now) if "notion" in SOURCES else []
@@ -117,17 +125,17 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         # A session waiting on my answer is my turn, not background work.
         claude_working = not waiting and ((s.claude_turn and age < RUNNING_STALE_SEC) or subs > 0)
         last_prompt_at = epoch(s.prompts[-1][0])
-        # A session thync started for a handed-off PR begins with '/<skill> <pr url>'.
-        first = s.prompts[0][1].split()
-        reflex_url = (first[1] if s.source == "claude_code" and len(first) > 1 and first[0].lstrip("/") in REFLEX_SKILL.values()
-                      and first[1] in reflexes else "")
+        # A session on another machine arrives with what only that machine knows (sources/remote.py).
+        host = getattr(s, "host", "")
+        reflex_url = s.reflex if host else reflex_of(s, reflexes)
         # Background: Claude is working and I have not prompted for BACKGROUND_SEC.
         running = bool((claude_working and now - last_prompt_at > BACKGROUND_SEC)
                        or (reflex_url and (claude_working or age < 30 * 60)))
         roles = ("running",) if running else ()
         glow = 0.7 if running else 0.0  # everything else gets its brightness from model.think()
-        profile = profile_of(s.cwd)
-        repo = repo_of(s.cwd)
+        profile = s.profile if host and s.profile else profile_of(s.cwd)
+        repo = s.repo if host else repo_of(s.cwd)
+        answerable = s.answerable if host else bool(waiting) and ask.answerable(waiting["id"])
         title = s.title or s.ai_title or s.prompts[-1][1][:60]
 
         branch = "" if s.branch in SKIP_BRANCHES else s.branch
@@ -140,8 +148,8 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
                    kind_label="작업 세션", source=s.source, cwd=s.cwd, branch=s.branch, updated=int(last), working=running,
                    focus_prompts=len(recent_prompts), subagents=subs, claude_working=claude_working,
                    last_at=last_prompt_at, act=model.retention(age), reflex=reflex_url,
-                   last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey,
-                   waiting=waiting and {**waiting, "answerable": ask.answerable(waiting["id"])})
+                   last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey, host=host,
+                   waiting=waiting and {**waiting, "answerable": answerable})
 
         if reflex_url:
             edge(sid, f"pr:{reflex_url}")
@@ -166,13 +174,15 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
                        key=lambda x: x[1])[-FILES_PER_SESSION:]
         for fp, ts in files:
             live = running and epoch(ts) > now - LIVE_FILE_SEC
-            edge(sid, node(f"file:{fp}", Path(fp).name, "dailyNote", profile, 0.55 if live else 0.0,
-                           ("running",) if live else (), kind_label="파일", path=fp, at=ts, repo=repo, unit=ukey))
+            # The same path on two machines is two files.
+            edge(sid, node(f"file:{host}:{fp}" if host else f"file:{fp}", Path(fp).name, "dailyNote", profile,
+                           0.55 if live else 0.0, ("running",) if live else (), kind_label="파일", path=fp, at=ts,
+                           repo=repo, unit=ukey, host=host))
 
         for ts, kind, text in s.events:
             if epoch(ts) > now - ACTIVITY_SEC:
                 activity.append({"at": ts, "kind": kind, "text": text, "session": sid, "title": title,
-                                 "profile": profile})
+                                 "profile": profile, "host": host})
 
     # My commits and pushes. The source is the branch; on a default branch the ticket named in the message, else
     # the repository.
@@ -292,4 +302,4 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
             "units": ranked, "nodes": list(nodes.values()),
             "edges": [list(e) for e in edges if e[0] in nodes and e[1] in nodes], "activity": activity[:40],
             "received": sorted(received, key=lambda r: r["at"], reverse=True)[:30],
-            "board": board.build_board(units, nodes, names, card_files)}
+            "board": board.build_board(units, nodes, names, card_files), "hosts": remote.status()}

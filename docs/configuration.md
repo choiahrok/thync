@@ -35,6 +35,8 @@ cp config.example.json "${THYNC_HOME:-$HOME/.thync}/config.json"
 | `port` | 서버 포트 | `8765` |
 | `reflex_skills` | 내 PR을 맡길 때 실행할 Claude Code 스킬 (`sent`) | `pr-review-watch` |
 | `ask_wait_sec` | 질문 hook 이 thync 의 답을 기다리는 시간(초). 지나면 세션이 직접 묻습니다 ([사용법](usage.md#선택-대기-질문에-thync-에서-답하기-pretooluse-hook)) | `300` |
+| `remotes` | 이 화면에 함께 보일 다른 서버 목록. `[{"name": "devbox1", "ssh": "devbox1"}]`. `ssh`는 `ssh` 명령에 주는 호스트, `port`(기본 `8765`)와 `thync_home`(기본 `~/.thync`)은 그 서버의 thync 값입니다 ([여러 서버를 한 화면에서](#여러-서버를-한-화면에서)) | `[]` |
+| `reflex_host` | PR 을 맡길 때 Claude 를 실행할 서버(`remotes`의 `name`). 그 서버의 저장소와 tmux 에서 돕니다 | 없음 (이 머신) |
 | `notion_user_id` | 이 Notion 사용자가 마지막으로 고친 페이지만 사용합니다 | 없음 (integration이 볼 수 있는 페이지 모두) |
 
 ## 저장 파일
@@ -51,6 +53,39 @@ cp config.example.json "${THYNC_HOME:-$HOME/.thync}/config.json"
 | `names.json` | 화면에서 바꾼 노드 이름 |
 | `cards/*.md` | 칸반 카드 ([파일 형식](usage.md#칸반-카드-파일)) |
 | `reflex.json` | Claude에게 맡긴 PR과 진행 상태 (tmux 세션 이름이나 리뷰 결과) |
+
+## 여러 서버를 한 화면에서
+
+개발 서버가 여러 대일 때, 서버마다 thync 를 그대로 돌려 두고 노트북의 thync 하나(허브)가 그 세션을 모아 한 뇌에 보여 줍니다. 세션 로그는 서버 밖으로 나가지 않고, 각 서버의 thync 가 읽어 정리한 세션만 SSH 터널로 옵니다.
+
+```mermaid
+flowchart LR
+    A["devbox1: Claude Code 세션 로그"] --> TA["devbox1 의 thync<br>/sessions.json"]
+    B["devbox2: Claude Code 세션 로그"] --> TB["devbox2 의 thync<br>/sessions.json"]
+    TA -- "SSH 터널" --> H["노트북의 thync (허브)<br>GitHub · Jira · Notion · 칸반"]
+    TB -- "SSH 터널" --> H
+    H --> W["브라우저 localhost:8765"]
+```
+
+1. 각 서버에서 thync 를 실행합니다([시작하기](getting-started.md)). 설정은 그대로 둬도 됩니다. 그 서버의 SessionStart·질문 hook 도 그대로 그 서버의 thync 를 씁니다.
+2. 허브가 될 머신에서 각 서버에 비밀번호 없이 `ssh <호스트>`로 들어갈 수 있어야 합니다(`ssh-copy-id <호스트>`). 허브는 `BatchMode`로 접속하므로 비밀번호나 호스트 키 확인을 묻지 않습니다.
+3. 허브의 `~/.thync/config.json`에 서버를 적고 허브를 재시작합니다.
+
+```json
+{
+  "remotes": [{"name": "devbox1", "ssh": "devbox1"}, {"name": "devbox2", "ssh": "devbox2"}],
+  "reflex_host": "devbox1",
+  "company_roots": ["~/work"]
+}
+```
+
+허브는 서버마다 SSH 터널을 하나 열고, 그 서버의 `~/.thync/token`을 SSH 로 한 번 읽은 뒤 1.5초마다 세션을 받아 옵니다. 바뀐 것이 없으면 본문 없이 `304`만 오갑니다. 상단 상태 줄 끝에 서버마다 `devbox1 ✓`, 연결되지 않으면 `devbox1 ✕ <이유>`가 보입니다. 터널이 끊기면 2초에서 30초까지 간격을 늘리며 다시 엽니다. 연결이 안 되는 동안 그 서버의 세션은 뇌에 남지만 작업 중으로 치지 않습니다.
+
+- **프로필**: 다른 서버의 세션이 회사인지 개인인지는 그 서버의 `company_roots`로 정합니다. 허브의 `company_roots`는 허브 자신의 세션에만 씁니다.
+- **선택 대기 질문**: 화면에서 고른 답은 그 세션이 있는 서버의 thync 로 넘어갑니다. 그 서버에 질문 hook 이 등록되어 있어야 합니다([사용법](usage.md#선택-대기-질문에-thync-에서-답하기-pretooluse-hook)).
+- **PR 맡기기**: `reflex_host`를 주면 그 서버의 저장소와 tmux 에서 Claude 가 돕니다. 칸반의 맡긴 일 카드에는 `ssh -t <호스트> tmux attach -t <이름>`이 보입니다.
+- **GitHub·Jira·Notion·칸반·이름 바꾸기**: 허브의 설정과 `~/.thync`를 씁니다. 서버의 thync 가 이 출처를 켜 두어도 허브는 세션만 가져오므로 중복되지 않습니다.
+- **허브 자신의 세션**: 허브 머신의 Claude Code 세션도 `sources`에 `claude_code`가 있으면 함께 보입니다.
 
 ## Jira와 Notion 연결
 

@@ -1,25 +1,32 @@
 """HTTP server: static page from web/, data at /graph.json, writes at /rename, /board and /reflex.
 
+/sessions.json serves this machine's parsed sessions to a hub thync on another machine (export.py). On a hub,
+answers to a remote session's question and, with `reflex_host`, PR hand-offs are forwarded to that machine.
+
 Binds to 127.0.0.1 only. Data and writes also require the X-Thync-Token header, because on a shared
 machine other local users can reach 127.0.0.1 too. The static page holds no data and needs no token.
 """
+import gzip
 import hmac
 import json
 import os
 import re
 import secrets
+import signal
 import subprocess
+import sys
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse, urlsplit
 
 from . import ask
-from .config import (DEFAULT_DAYS, HANDOFF, HOST, MAX_DAYS, PORT, PROFILE_PERSONAL, PROFILE_WORK, SESSIONS, SOURCES,
-                     STATE_DIR, WEB_DIR)
+from .config import (DEFAULT_DAYS, HANDOFF, HOST, MAX_DAYS, PORT, PROFILE_PERSONAL, PROFILE_WORK, REFLEX_HOST, REMOTES,
+                     SESSIONS, SOURCES, STATE_DIR, WEB_DIR)
+from .export import snapshot
 from .graph import build_graph
 from .reflex import start_reflex
-from .sources import github, jira, notion
+from .sources import github, jira, notion, remote
 from .sources.claude_code import load_sessions
 from .store import BOARD_COLUMNS, load_token, save_card, save_name
 
@@ -53,6 +60,10 @@ class Handler(SimpleHTTPRequestHandler):
             return True
         self.send_error(401, "token required")
         return False
+
+    def forwarded(self) -> bool:
+        """Sent on by a hub thync (sources/remote.py): handle it here, never forward it again."""
+        return self.headers.get("X-Thync-Forwarded") == "1"
 
     def read_body(self, limit: int) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
@@ -112,6 +123,10 @@ class Handler(SimpleHTTPRequestHandler):
         if url.path == "/reviews":
             self.get_reviews(parse_qs(url.query).get("url", [""])[0])
             return
+        if url.path == "/sessions.json":
+            if self.authorized():
+                self.get_sessions(parse_qs(url.query).get("days", [str(MAX_DAYS)])[0])
+            return
         if url.path != "/graph.json":
             super().do_GET()
             return
@@ -141,6 +156,28 @@ class Handler(SimpleHTTPRequestHandler):
         except (OSError, subprocess.SubprocessError, RuntimeError):
             self.fail(500)
 
+    def get_sessions(self, days: str):
+        try:
+            n = max(1, min(MAX_DAYS, int(days)))
+        except ValueError:
+            n = MAX_DAYS
+        body, etag = snapshot(n)
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("ETag", etag)
+        if "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = gzip.compress(body, compresslevel=5)
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def get_reviews(self, pr: str):
         if not self.authorized():
             return
@@ -153,18 +190,42 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(502, {"message": "GitHub 에서 리뷰를 가져오지 못했어요"})
 
     def post_reflex(self):
-        if not HANDOFF:
+        req = self.read_body(16384)
+        approve = req.get("approve") is True
+        if isinstance(req.get("node"), dict):
+            # A hub forwarding a hand-off: it sends the PR node, which this machine's graph may not have.
+            target = req["node"]
+            if not isinstance(target.get("roles"), list) or not isinstance(target.get("detail"), dict):
+                raise ValueError("bad node")
+        else:
+            nid = str(req["id"])
+            target = next((n for n in build_graph(MAX_DAYS)["nodes"] if n["id"] == nid), None)
+        if not target:
+            self.send_json(404, {"message": "노드를 찾지 못했어요"})
+            return
+        if REFLEX_HOST and not self.forwarded():
+            status, reply = remote.by_name(REFLEX_HOST).post("/reflex", {"node": target, "approve": approve})
+            message = str(reply.get("message", "")) or f"{REFLEX_HOST} 응답 {status}"
+            self.send_json(status, {"message": f"{REFLEX_HOST}: {message}" if status < 400 else message})
+            return
+        if not HANDOFF or REFLEX_HOST:
             self.send_json(503, {"message": "이 머신에는 claude CLI 나 세션 기록이 없어 PR 을 맡길 수 없어요"})
             return
-        req = self.read_body(4096)
-        nid, approve = str(req["id"]), req.get("approve") is True
-        target = next((n for n in build_graph(MAX_DAYS)["nodes"] if n["id"] == nid), None)
-        status, message = start_reflex(target, approve) if target else (404, "노드를 찾지 못했어요")
+        status, message = start_reflex(target, approve)
         self.send_json(status, {"message": message})
 
     def post_answer(self):
         body = self.read_body(8192)
         answers = [" ".join(str(a).split())[:500] for a in body["answers"]][:4]
+        owner = None if self.forwarded() else remote.owner_of_question(str(body["id"]))
+        if owner:  # the session runs on another machine, whose question hook polls its own thync
+            status, reply = owner.post("/answer", {"id": str(body["id"]), "answers": answers})
+            if status == 204:
+                self.send_response(204)
+                self.end_headers()
+            else:
+                self.send_json(status, reply or {"message": f"{owner.name} 응답 {status}"})
+            return
         if not ask.answer(str(body["id"]), answers):
             self.send_json(409, {"message": "이 질문은 thync 에서 답할 수 없어요. 세션에서 답해 주세요"})
             return
@@ -219,6 +280,11 @@ def main() -> None:
     os.umask(0o077)
     TOKEN = load_token()
     print(f"thync: http://{HOST}:{PORT}/  (first time: append #t=<contents of {STATE_DIR / 'token'}>)", flush=True)
+    # Exit through atexit on kill/pkill too, so the SSH tunnels to remotes close with the server.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    if REMOTES:
+        print(f"thync: showing sessions from {', '.join(r['name'] for r in REMOTES)} too", flush=True)
+        remote.start()
     if "github" in SOURCES:
         threading.Thread(target=github.refresh_forever, daemon=True).start()
     if "notion" in SOURCES:
