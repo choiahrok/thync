@@ -17,7 +17,7 @@ TOKEN_FILE = STATE_DIR / "token"
 NAMES_FILE = STATE_DIR / "names.json"
 REFLEX_FILE = STATE_DIR / "reflex.json"
 
-BOARD_COLUMNS = {"todo", "doing", "background", "done"}
+BOARD_COLUMNS = {"todo", "doing", "done"}  # a file still saying "background" falls back to the automatic column
 WRITE_LOCK = threading.Lock()  # read-modify-write of these files happens on request threads
 CARD_KEYS = ("id", "title", "column", "profile", "manual")
 

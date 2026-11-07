@@ -17,6 +17,7 @@ let shownId: string | null = null;
 
 export function closeDetail(): void {
   modalEl.hidden = true;
+  modalEl.style.inset = "";
   shownId = null;
 }
 document.querySelector<HTMLButtonElement>("#modal-close")!.onclick = closeDetail;
@@ -24,9 +25,12 @@ modalEl.onclick = (e) => { if (e.target === modalEl) closeDetail(); };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modalEl.hidden) closeDetail(); });
 
 /** Use the modal for something other than node details (it then ignores repeated showDetail calls). */
-export function claimModal(title: string): void {
+export function claimModal(title: string, overBrain = false): void {
   shownId = "custom";
   modalTitle.textContent = title;
+  // Cover just the brain, so the question opens in its middle; the window when the brain is hidden.
+  const r = document.querySelector("#brain")!.getBoundingClientRect();
+  modalEl.style.inset = overBrain && r.height ? `${r.top}px ${innerWidth - r.right}px ${innerHeight - r.bottom}px ${r.left}px` : "";
   modalEl.hidden = false;
 }
 

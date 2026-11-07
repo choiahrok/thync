@@ -7,7 +7,7 @@ Activity sources carry `last_at` (last prompt, commit, ticket update or page edi
 import time
 from pathlib import Path
 
-from . import board, model
+from . import ask, board, model
 from .config import (ACTIVITY_SEC, BACKGROUND_SEC, DEFAULT_DAYS, FILES_PER_SESSION, FILES_SEC, FOCUS_SEC, HANDOFF,
                      JIRA_DONE, JIRA_TODO, LIVE_FILE_SEC, LIVE_SESSION_SEC, PROFILE_PERSONAL, PROFILE_WORK, PRS_PER_SESSION,
                      RUNNING_STALE_SEC, COMPANY_ROOTS, SESSIONS, SOURCES)
@@ -141,7 +141,7 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
                    focus_prompts=len(recent_prompts), subagents=subs, claude_working=claude_working,
                    last_at=last_prompt_at, act=model.retention(age), reflex=reflex_url,
                    last_prompt=s.prompts[-1][1][:200], repo=repo, unit=ukey,
-                   waiting=waiting)
+                   waiting=waiting and {**waiting, "answerable": ask.answerable(waiting["id"])})
 
         if reflex_url:
             edge(sid, f"pr:{reflex_url}")

@@ -34,6 +34,7 @@ cp config.example.json "${THYNC_HOME:-$HOME/.thync}/config.json"
 | `cards_dir` | 칸반 카드 파일을 둘 폴더. Obsidian vault 안 폴더를 지정해도 됩니다 | `<THYNC_HOME>/cards` (기본 `~/.thync/cards`) |
 | `port` | 서버 포트 | `8765` |
 | `reflex_skills` | 내 PR을 맡길 때 실행할 Claude Code 스킬 (`sent`) | `pr-review-watch` |
+| `ask_wait_sec` | 질문 hook 이 thync 의 답을 기다리는 시간(초). 지나면 세션이 직접 묻습니다 ([사용법](usage.md#선택-대기-질문에-thync-에서-답하기-pretooluse-hook)) | `300` |
 | `notion_user_id` | 이 Notion 사용자가 마지막으로 고친 페이지만 사용합니다 | 없음 (integration이 볼 수 있는 페이지 모두) |
 
 ## 저장 파일

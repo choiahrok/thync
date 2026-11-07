@@ -30,7 +30,7 @@ flowchart TD
     API --> Main["web/src/main.ts: 2초마다 조회"]
     Main --> Layout["layout.ts · renderer.ts: 뇌 그래프"]
     Main --> Views["panel.ts · board.ts · live.ts · detail.ts"]
-    Main --> Write["POST /rename · /board · /reflex"]
+    Main --> Write["POST /rename · /board · /reflex · /answer"]
     Write --> Store
     Write --> Reflex["reflex.py · review.py: PR 위임"]
 ```
@@ -89,6 +89,7 @@ flowchart TD
 | `server.py` | HTTP 처리, 토큰 확인, 화면 파일 제공 |
 | `mcp.py` | 표준 입출력 MCP 서버. `thync_now` 도구로 패널과 '맡긴 일' 목록을 짧은 글로 반환합니다 |
 | `hook.py` | Claude Code SessionStart hook. 실행 중인 서버의 그래프를 세션 폴더의 프로필로 줄여 세션 맥락에 넣는다 |
+| `ask.py` | Claude Code PreToolUse hook(AskUserQuestion). 질문을 잡아 두고 서버에서 화면의 답을 받아 `updatedInput.answers`로 돌려준다. 서버 쪽에는 hook 이 기다리는 질문과 아직 가져가지 않은 답을 메모리에 둔다 |
 
 ## 화면 (`web/src/`)
 
@@ -179,12 +180,14 @@ flowchart TD
 | 요청 | 본문 | 하는 일 |
 | --- | --- | --- |
 | `POST /rename` | `{id, name}` | 노드 이름을 바꿉니다. 빈 이름이면 원래 이름으로 |
+| `GET /answer?id=` | 없음 | 질문 hook 이 1초마다 묻습니다. 화면에서 고른 답이 있으면 `200`과 질문 순서대로 된 답 목록, 없으면 `204`. 이 요청이 5초 안에 있었던 질문만 노드의 `waiting.answerable`이 `true`가 됩니다 |
+| `POST /answer` | `{id, answers[]}` | 화면에서 고른 답을 hook 에 넘깁니다. hook 이 기다리지 않는 질문이면 `409` |
 | `POST /board` | `{id, column?, title?, note?, reset?}` 또는 `{new: true, title, column?, profile?}` | 카드 파일을 고치거나 새 카드를 만듭니다 |
 | `POST /reflex` | `{id, approve?}` | PR 노드를 Claude에게 맡깁니다 |
 
 `/rename`과 `/board` 성공 응답은 본문 없는 `204`입니다. `/reflex`는 HTTP 상태와 함께 `{"message": "..."}`를 돌려주며, 시작 성공은 `202`, 이미 실행 중이면 `409`, 위임 기능이 꺼져 있으면 `503`입니다. 토큰이 없거나 틀리면 `401`, 로컬 호스트가 아닌 `Host`이면 `403`을 반환합니다.
 
-카드의 일반 `column` 값은 `todo`, `doing`, `background`, `done`입니다. `reflex`는 PR 위임 결과에서 생성되며 `/board`로 직접 지정할 수 없습니다. `waiting`(선택 대기)은 작업 단위의 세션이 내 답을 기다릴 때 자동으로 정해지고, 직접 지정한 칸보다 우선합니다. 답하면 원래 칸으로 돌아갑니다. `reset: true`는 수동으로 지정한 칸을 해제합니다. 카드 파일 형식은 [사용법](usage.md#칸반-카드-파일), PR 위임의 동작과 권한은 [위임 안내](handoff.md)에 있습니다.
+카드의 일반 `column` 값은 `todo`, `doing`, `done`입니다. Claude가 혼자 일하는 작업도 `doing`에 들어갑니다. `reflex`는 PR 위임 결과에서 생성되며 `/board`로 직접 지정할 수 없습니다. `waiting`(선택 대기)은 작업 단위의 세션이 내 답을 기다릴 때 자동으로 정해지고, 직접 지정한 칸보다 우선합니다. 답하면 원래 칸으로 돌아갑니다. `reset: true`는 수동으로 지정한 칸을 해제합니다. 카드 파일 형식은 [사용법](usage.md#칸반-카드-파일), PR 위임의 동작과 권한은 [위임 안내](handoff.md)에 있습니다.
 
 ## 출처를 더하려면
 

@@ -14,6 +14,7 @@ import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse, urlsplit
 
+from . import ask
 from .config import (DEFAULT_DAYS, HANDOFF, HOST, MAX_DAYS, PORT, PROFILE_PERSONAL, PROFILE_WORK, SESSIONS, SOURCES,
                      STATE_DIR, WEB_DIR)
 from .graph import build_graph
@@ -99,6 +100,15 @@ class Handler(SimpleHTTPRequestHandler):
 
     def get(self):
         url = urlparse(self.path)
+        if url.path == "/answer":
+            if self.authorized():
+                picked = ask.poll(parse_qs(url.query).get("id", [""])[0])
+                if picked:
+                    self.send_json(200, picked)
+                else:
+                    self.send_response(204)
+                    self.end_headers()
+            return
         if url.path == "/reviews":
             self.get_reviews(parse_qs(url.query).get("url", [""])[0])
             return
@@ -116,7 +126,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         if not self.local_host() or not self.authorized():
             return
-        handler = {"/reflex": self.post_reflex, "/board": self.post_board, "/rename": self.post_rename}.get(
+        handler = {"/reflex": self.post_reflex, "/board": self.post_board, "/rename": self.post_rename,
+                   "/answer": self.post_answer}.get(
             urlparse(self.path).path)
         if not handler:
             self.send_error(404)
@@ -150,6 +161,15 @@ class Handler(SimpleHTTPRequestHandler):
         target = next((n for n in build_graph(MAX_DAYS)["nodes"] if n["id"] == nid), None)
         status, message = start_reflex(target, approve) if target else (404, "노드를 찾지 못했어요")
         self.send_json(status, {"message": message})
+
+    def post_answer(self):
+        body = self.read_body(8192)
+        answers = [" ".join(str(a).split())[:500] for a in body["answers"]][:4]
+        if not ask.answer(str(body["id"]), answers):
+            self.send_json(409, {"message": "이 질문은 thync 에서 답할 수 없어요. 세션에서 답해 주세요"})
+            return
+        self.send_response(204)
+        self.end_headers()
 
     def post_board(self):
         body = self.read_body(8192)

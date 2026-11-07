@@ -5,13 +5,14 @@ import { post } from "./api.ts";
 import { focus, refresh } from "./main.ts";
 import { infoButton } from "./panel.ts";
 import { openReflex, reflexTargets } from "./reflex.ts";
+import { showWaiting } from "./waiting.ts";
 import { inProfile, recall, remember, state } from "./state.ts";
 import { ago, epochMs, profileColor } from "./style.ts";
 import type { ApiCard } from "./types.ts";
 
 const boardEl = document.querySelector<HTMLDivElement>("#board")!;
 const stageEl = document.querySelector<HTMLElement>("#stage")!;
-const COLUMN_NAME: Record<string, string> = { waiting: "선택 대기", todo: "Todo", doing: "진행 중", background: "백그라운드 진행 중", reflex: "맡긴 일", done: "완료" };
+const COLUMN_NAME: Record<string, string> = { waiting: "선택 대기", todo: "Todo", doing: "진행 중", reflex: "맡긴 일", done: "완료" };
 let busy = false; // while dragging or editing, the 2 s refresh must not redraw the cards
 
 const saveCard = (body: Record<string, unknown>) => post("/board", body);
@@ -35,7 +36,12 @@ function cardView(c: ApiCard): HTMLDivElement {
   }
   el.append(title, sub, note, tags);
   if (c.focus) el.prepend(infoButton(c.focus));
-  el.onclick = () => { if (c.focus) focus(c.focus); };
+  el.onclick = () => {
+    // A waiting card opens the question it waits on; the others show their work on the brain.
+    const asking = c.column === "waiting" && state.data.nodes.find((n) => n.detail.unit === c.id && n.detail.waiting);
+    if (asking) showWaiting(asking);
+    else if (c.focus) focus(c.focus);
+  };
   title.ondblclick = (e) => { e.stopPropagation(); editInPlace(el, title, c.title, true, (v) => ({ id: c.id, title: v })); };
   el.ondblclick = () => editInPlace(el, note, c.note, false, (v) => ({ id: c.id, note: v }));
   el.ondragstart = (e) => { busy = true; el.classList.add("dragging"); e.dataTransfer!.setData("text/plain", c.id); };

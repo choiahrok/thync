@@ -27,5 +27,5 @@ export interface ApiGraph {
 
 /** A question a session put to me and I have not answered yet (detail.waiting of a session node). */
 export interface Waiting {
-  id: string; at: string; tool: string; questions: { question: string; options: string[]; detail?: string }[];
+  id: string; at: string; tool: string; answerable?: boolean; questions: { question: string; options: string[]; detail?: string }[];
 }

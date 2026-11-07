@@ -147,6 +147,9 @@
     #detail .review header a { color: var(--quiet); }
     #detail .review header a:hover { color: var(--glow); }
     #detail .review p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 220px; overflow-y: auto; }
+    #detail .review label.choice { display: block; margin: 4px 0; cursor: pointer; }
+    #detail .review input[type="text"] { width: 100%; margin-top: 6px; background: transparent; color: var(--ink);
+      border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font: inherit; }
     #detail .actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 0; padding-top: 6px; }
     #detail .actions button { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 6px;
       font: inherit; font-size: 13px; padding: 6px 14px; cursor: pointer; }
@@ -178,7 +181,6 @@
       <section data-col="waiting" class="waiting" hidden><h3>선택 대기</h3><div></div></section>
       <section data-col="todo"><h3>Todo</h3><div></div></section>
       <section data-col="doing"><h3>진행 중</h3><div></div></section>
-      <section data-col="background"><h3>백그라운드 진행 중</h3><div></div></section>
       <section data-col="reflex" class="reflex"><h3>맡긴 일</h3><div></div></section>
       <section data-col="done"><h3>완료</h3><div></div></section>
     </div>

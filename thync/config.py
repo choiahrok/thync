@@ -39,6 +39,8 @@ SESSIONS = bool({"claude_code", "codex"} & SOURCES)
 NOTION_USER = CONFIG.get("notion_user_id", "")  # only pages last edited by this Notion user; empty = every page
 # Handing PRs off to Claude needs the claude CLI and the session logs it writes.
 HANDOFF = "claude_code" in SOURCES and shutil.which("claude") is not None
+# How long the AskUserQuestion hook holds a question for an answer from thync before the session asks itself.
+ASK_WAIT_SEC = int(CONFIG.get("ask_wait_sec", 300))
 HOST = "127.0.0.1"
 PORT = int(CONFIG.get("port", 8765))
 

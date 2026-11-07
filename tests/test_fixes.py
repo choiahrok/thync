@@ -125,6 +125,15 @@ class FixesTest(unittest.TestCase):
         node["detail"]["waiting"] = None
         self.assertEqual(board.build_board(unit, {"session:1": node}, {}, files)[0]["column"], "doing")
 
+    def test_answer_reaches_only_a_question_a_hook_holds(self):
+        from thync import ask
+        self.assertFalse(ask.answer("q1", ["A"]))  # no hook is waiting: the session asks itself
+        self.assertIsNone(ask.poll("q1"))
+        self.assertTrue(ask.answerable("q1"))
+        self.assertTrue(ask.answer("q1", ["A"]))
+        self.assertEqual(ask.poll("q1"), ["A"])
+        self.assertIsNone(ask.poll("q1"))  # handed over once
+
 
 if __name__ == "__main__":
     unittest.main()

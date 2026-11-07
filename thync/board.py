@@ -1,6 +1,7 @@
 """Kanban cards. One card per work unit; review requests and my PRs under review get one card per PR.
 
-Columns: waiting (a session waits on my answer), todo, doing, background, reflex (work handed off to Claude), done. A column set by hand in the
+Columns: waiting (a session waits on my answer), todo, doing (including work Claude runs on its own), reflex (work
+handed off to Claude), done. A column set by hand in the
 card's Markdown file wins over the automatic one, which stays in `auto_column` so it can be restored.
 """
 from .config import HANDOFF, JIRA_DONE, JIRA_TODO, PROFILE_PERSONAL, PROFILE_WORK
@@ -16,11 +17,8 @@ def _auto_column(members: list[dict]) -> str:
         return "waiting"
     sources = [n for n in members if "last_at" in n["detail"]]
     statuses = {n["detail"].get("jira_status", "").lower() for n in members if n["kind"] == "project"} - {""}
-    if any("focus" in n["roles"] for n in sources) or any(n["detail"]["live"] and "running" not in n["roles"]
-                                                         for n in sources):
+    if any("focus" in n["roles"] or "running" in n["roles"] or n["detail"]["live"] for n in sources):
         return "doing"
-    if any("running" in n["roles"] for n in sources):
-        return "background"
     if any("review" in n["roles"] or "sent" in n["roles"] for n in members):
         return "todo" if any("review" in n["roles"] for n in members) else "doing"
     if statuses - JIRA_TODO - JIRA_DONE:

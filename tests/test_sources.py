@@ -134,7 +134,7 @@ class GraphWithoutSessions(unittest.TestCase):
         self.assertEqual(nodes["repo:tool"]["profile"], "개인")
         self.assertIn("running", nodes["jira:ABC-5"]["roles"])  # in progress, outside the workspace
         cards = {c["id"]: c["column"] for c in g["board"]}
-        self.assertEqual((cards["jira:ABC-9"], cards["jira:ABC-5"]), ("doing", "background"))
+        self.assertEqual((cards["jira:ABC-9"], cards["jira:ABC-5"]), ("doing", "doing"))
         self.assertTrue(g["activity"])
 
     def test_with_session_logs_commits_add_nothing(self):
