@@ -185,6 +185,7 @@ flowchart TD
 | --- | --- | --- |
 | `POST /rename` | `{id, name}` | 노드 이름을 바꿉니다. 빈 이름이면 원래 이름으로 |
 | `GET /answer?id=` | 없음 | 질문 hook 이 1초마다 묻습니다. 화면에서 고른 답이 있으면 `200`과 질문 순서대로 된 답 목록, 없으면 `204`. 이 요청이 5초 안에 있었던 질문만 노드의 `waiting.answerable`이 `true`가 됩니다 |
+| `GET /status.json` | 없음 | 데스크톱 구름([desktop.md](desktop.md))이 2초마다 읽습니다. `waiting[]`(`session`, `title`, `host`, `question`, `answerable`), `running`, `working`, `focus`, `reviews`, `hosts[]` |
 | `POST /ask` | `{id, session, questions[]}` | 질문 hook 이 잡아 둔 질문을 알립니다. Claude Code 는 hook 이 끝난 뒤에야 질문을 세션 로그에 적으므로, 기다리는 동안에는 이 알림으로 그 세션의 `waiting`을 채웁니다. hook 이 5초 넘게 묻지 않거나 답을 가져가면 사라집니다 |
 | `POST /answer` | `{id, answers[]}` | 화면에서 고른 답을 hook 에 넘깁니다. hook 이 기다리지 않는 질문이면 `409` |
 | `POST /board` | `{id, column?, title?, note?, reset?}` 또는 `{new: true, title, column?, profile?}` | 카드 파일을 고치거나 새 카드를 만듭니다 |

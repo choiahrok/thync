@@ -1,0 +1,18 @@
+[package]
+name = "thync-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "thync on the desktop: a cloud that wanders the screen and shows what thync sees"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api", "image-png"] }
+tauri-plugin-notification = "2"
+serde_json = "1"
+ureq = { version = "2", default-features = false, features = ["json"] }
+
+[profile.release]
+strip = true
+lto = true

@@ -123,6 +123,10 @@ class Handler(SimpleHTTPRequestHandler):
         if url.path == "/reviews":
             self.get_reviews(parse_qs(url.query).get("url", [""])[0])
             return
+        if url.path == "/status.json":
+            if self.authorized():
+                self.send_json(200, status_of(build_graph(DEFAULT_DAYS)))
+            return
         if url.path == "/sessions.json":
             if self.authorized():
                 self.get_sessions(parse_qs(url.query).get("days", [str(MAX_DAYS)])[0])
@@ -285,6 +289,21 @@ class Handler(SimpleHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         pass
+
+
+def status_of(g: dict) -> dict:
+    """GET /status.json: the few numbers and questions the desktop character shows (desktop/)."""
+    nodes = g["nodes"]
+    waiting = [{"session": n["id"], "title": n["name"], "host": n["detail"].get("host", ""),
+                "question": (n["detail"]["waiting"].get("questions") or [{}])[0].get("question", ""),
+                "answerable": bool(n["detail"]["waiting"].get("answerable"))}
+               for n in nodes if n["kind"] == "workThread" and n["detail"].get("waiting")]
+    return {"generated": g["generated"], "waiting": waiting,
+            "running": sum(1 for n in nodes if n["kind"] == "workThread" and "running" in n["roles"]),
+            "working": sum(1 for n in nodes if n["kind"] == "workThread" and n["detail"].get("claude_working")),
+            "focus": sum(1 for n in nodes if "focus" in n["roles"] and "last_at" in n["detail"]),
+            "reviews": sum(1 for n in nodes if "review" in n["roles"]),
+            "hosts": g.get("hosts", [])}
 
 
 def main() -> None:
