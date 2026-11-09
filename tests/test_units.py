@@ -46,6 +46,15 @@ class MergeUnits(unittest.TestCase):
         self.assertNotEqual(nodes["session:c"]["detail"]["unit"], kept)
         self.assertEqual(len([u for u in units if u.startswith("branch:")]), 2)
 
+    def test_a_pr_from_another_repository_joins_nothing(self):
+        other = "https://github.com/o/lib/pull/7"
+        g = self.build([
+            session("a", "feat-rotate", "키 로테이션", {other: (iso(600), "o/lib", 7)}, ago=600),
+            session("b", "perf-buffers", "버퍼 줄이기", {other: (iso(60), "o/lib", 7)}, ago=60),
+        ])
+        nodes = {n["id"]: n for n in g["nodes"]}
+        self.assertNotEqual(nodes["session:a"]["detail"]["unit"], nodes["session:b"]["detail"]["unit"])
+
     def test_a_ticket_unit_absorbs_a_branch_unit(self):
         units = {"jira:ABC-1": {"updated": 1, "title": "t", "glow": 0.0, "sessions": 1, "keys": ["ABC-1"], "working": False},
                  "branch:app:x": {"updated": 5, "title": "x", "glow": 0.7, "sessions": 2, "keys": [], "working": True}}
@@ -54,6 +63,21 @@ class MergeUnits(unittest.TestCase):
         self.assertEqual(units["jira:ABC-1"]["sessions"], 3)
         self.assertTrue(units["jira:ABC-1"]["working"])
         self.assertEqual(units["jira:ABC-1"]["title"], "x")
+
+    def test_a_session_naming_many_prs_does_not_chain_units(self):
+        units = {f"branch:app:{c}": unit(n) for c, n in zip("abcd", (4, 3, 2, 1))}
+        # a-b share p1, b-c share p2, c-d share p3: a chain, not one piece of work.
+        moved = graph.merge_units(units, {"branch:app:a": {"pr:p1"}, "branch:app:b": {"pr:p1", "pr:p2"},
+                                          "branch:app:c": {"pr:p2", "pr:p3"}, "branch:app:d": {"pr:p3"}})
+        self.assertEqual(moved, {"branch:app:b": "branch:app:a", "branch:app:d": "branch:app:c"})
+
+    def test_a_pr_many_units_name_joins_nothing(self):
+        units = {f"branch:app:{i}": unit(i) for i in range(graph.MERGE_MAX_SHARE + 1)}
+        self.assertEqual(graph.merge_units(units, {u: {"pr:hub"} for u in units}), {})
+
+
+def unit(updated: int) -> dict:
+    return {"updated": updated, "title": str(updated), "glow": 0.0, "sessions": 1, "keys": [], "working": False}
 
 
 if __name__ == "__main__":

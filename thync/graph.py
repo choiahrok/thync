@@ -27,35 +27,41 @@ def profile_of(cwd: str) -> str:
 
 
 UNIT_RANK = ("jira:", "branch:", "repo:")  # which unit survives a merge: a ticket, else a branch, else a repository
+MERGE_MAX_SHARE = 3  # a PR or key named by more units than this is shared context, not the same work
 
 
 def merge_units(units: dict, links: dict[str, set[str]]) -> dict[str, str]:
     """Join units that share a PR or a Jira key: the same work split across branches or sessions (a review
-    loop on its own branch, a session that only names the PR). Mutates `units`; returns {absorbed: kept}."""
-    parent = {u: u for u in links if u in units}
+    loop on its own branch, a session that only names the PR). Mutates `units`; returns {absorbed: kept}.
 
-    def find(u: str) -> str:
-        while parent[u] != u:
-            parent[u] = parent[parent[u]]
-            u = parent[u]
-        return u
-
-    owner: dict[str, str] = {}
-    for u in parent:
-        for token in links[u]:
-            if token in owner:
-                parent[find(u)] = find(owner[token])
-            else:
-                owner[token] = u
+    Joins are one hop only: a unit joins a unit it shares a PR or key with, never that unit's other partners,
+    so a session that names many PRs cannot chain a week of work into one blob. A PR or key that more than
+    MERGE_MAX_SHARE units name (a PR everyone reviews or mentions) joins nothing."""
+    owners: dict[str, set[str]] = {}
+    for u, tokens in links.items():
+        if u in units:
+            for t in tokens:
+                owners.setdefault(t, set()).add(u)
+    partners: dict[str, set[str]] = {u: set() for u in units}
+    for us in owners.values():
+        if 2 <= len(us) <= MERGE_MAX_SHARE:
+            for u in us:
+                partners[u] |= us - {u}
+    rank = lambda u: next((i for i, p in enumerate(UNIT_RANK) if u.startswith(p)), len(UNIT_RANK))  # noqa: E731
+    order = sorted(units, key=lambda u: (rank(u), -units[u]["updated"], u))  # best first
+    pos = {u: i for i, u in enumerate(order)}
     groups: dict[str, list[str]] = {}
-    for u in parent:
-        groups.setdefault(find(u), []).append(u)
+    for u in order:
+        # Join the best partner that stays a unit of its own; otherwise stay one.
+        kept = [v for v in partners[u] if v in groups and pos[v] < pos[u]]
+        if kept:
+            groups[min(kept, key=pos.get)].append(u)
+        else:
+            groups[u] = [u]
     moved = {}
-    for members in groups.values():
+    for keep, members in groups.items():
         if len(members) < 2:
             continue
-        rank = lambda u: next((i for i, p in enumerate(UNIT_RANK) if u.startswith(p)), len(UNIT_RANK))  # noqa: E731
-        keep = min(members, key=lambda u: (rank(u), -units[u]["updated"], u))
         k = units[keep]
         for u in members:
             if u == keep:
@@ -217,7 +223,9 @@ def build_graph(days: int = DEFAULT_DAYS) -> dict:
         for url, (_, prrepo, num) in prs:
             edge(sid, node(f"pr:{url}", f"{prrepo.split('/')[-1]} #{num}", "source", profile,
                            kind_label="PR", url=url, repo=repo, unit=ukey))
-        links.setdefault(ukey, set()).update({f"pr:{url}" for url, _ in prs} | {f"key:{k}" for k in keys}
+        # A PR in another repository is one this session reviewed or mentioned, not its own work: it joins nothing.
+        links.setdefault(ukey, set()).update({f"pr:{url}" for url, (_, prrepo, _) in prs if prrepo.split("/")[-1] == repo}
+                                             | {f"key:{k}" for k in keys}
                                              | ({f"pr:{reflex_url}"} if reflex_url else set()))
 
         # Files Claude edited in the last hour.
