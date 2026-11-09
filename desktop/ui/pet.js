@@ -1,5 +1,6 @@
 // The thync cloud: wanders the screen in its own small transparent window and shows what thync sees.
 //   waiting  a session asks me something: stops, pushes its shades up, bounces, shows the question; notifies once
+//   done     a long or background run just ended: stops, hops, shows which one; notifies once
 //   working  Claude works on its own: lightning flickers, it moves faster, a count shows
 //   focus    I am working: calm cyan glow
 //   idle     nothing going on: shades on, slow drift
@@ -23,6 +24,7 @@ const LOOK = {
   focus: { aura: "#5fe3ff", speed: 30 },
   working: { aura: "#8f7bff", speed: 70 },
   waiting: { aura: "#ffcf6b", speed: 0 },
+  done: { aura: "#7ee08a", speed: 0 },
   offline: { aura: "#7a8290", speed: 0 },
 };
 
@@ -33,7 +35,17 @@ let primed = false;         // no notifications for questions already waiting wh
 let hubStarted = false;
 let hovered = false, dragging = false, pausedUntil = 0;
 let pos = null, target = null, area = null;
+// Where the tail points: away from the way the cloud moves, eased so it swings instead of snapping.
+let tailAngle = Math.PI * 0.92, tailWant = Math.PI * 0.92;
+// The tail peeks out from behind only while the cloud travels on a slant, and fades otherwise.
+let steppedAt = 0, tailShown = 0, slant = 0;
 let blinkAt = performance.now() + 2500;
+
+// A run counts as finished when a session goes from working to its turn ended. Short interactive turns end every
+// minute or so, so only background runs or runs that worked for LONG_RUN_MS without a break are announced.
+const LONG_RUN_MS = 2 * 60 * 1000, DONE_MS = 6000;
+let working = new Map();    // session -> { since, background } while Claude works on it
+let done = null;            // { session: last finished, more: how many others finished with it, until }
 
 // --- status ---------------------------------------------------------------------------------------------
 async function poll() {
@@ -44,7 +56,8 @@ async function poll() {
     if (!hubStarted) { hubStarted = true; invoke("start_hub").catch(() => {}); }
   }
   const before = mood;
-  mood = !status ? "offline" : status.waiting.length ? "waiting" : status.working > 0 ? "working" : status.focus > 0 ? "focus" : "idle";
+  if (status) noticeFinished();
+  mood = currentMood();
   if (status) {
     const ids = new Set(status.waiting.map((w) => w.session));
     for (const w of status.waiting) {
@@ -56,6 +69,33 @@ async function poll() {
     primed = true;
   }
   if (mood !== before) target = null;   // pick a new place to go for the new mood
+}
+
+function currentMood() {
+  if (!status) return "offline";
+  if (status.waiting.length) return "waiting";
+  if (done && performance.now() < done.until) return "done";
+  return status.working > 0 ? "working" : status.focus > 0 ? "focus" : "idle";
+}
+
+// Sessions that were working on the last poll and have ended their turn now. While the hub is down nothing changes.
+function noticeFinished() {
+  const now = Date.now(), next = new Map(), finished = [];
+  for (const s of status.sessions || []) {
+    const run = working.get(s.session);
+    if (s.state === "working") {
+      next.set(s.session, { since: run ? run.since : now, background: s.background || Boolean(run && run.background) });
+    } else if (s.state === "ended" && run && (run.background || now - run.since >= LONG_RUN_MS)) {
+      finished.push(s);
+    }
+  }
+  working = next;
+  for (const s of finished) {
+    invoke("notify", { title: "thync · 끝났어요", body: `${s.host || "이 Mac"} · ${s.title}` }).catch(() => {});
+  }
+  if (finished.length) {
+    done = { session: finished[finished.length - 1], more: finished.length - 1, until: performance.now() + DONE_MS };
+  }
 }
 
 // --- moving around --------------------------------------------------------------------------------------
@@ -90,6 +130,9 @@ async function move(now) {
   const step = Math.min(d, speed * dt);
   pos.x += (dx / d) * step;
   pos.y += (dy / d) * step;
+  tailWant = Math.atan2(-dy * 0.6, -dx);
+  steppedAt = now;
+  slant = Math.abs(dx * dy) / (d * d) * 2;     // 1 at 45 degrees, 0 when going straight across or up and down
   await win.setPosition(new dpi.LogicalPosition(Math.round(pos.x), Math.round(pos.y)));
 }
 
@@ -104,13 +147,16 @@ function cloudPath(cx, cy, k = 1) {
 
 function drawCloud(t) {
   const look = LOOK[mood];
-  const bob = mood === "waiting" ? -Math.abs(Math.sin(t / 180)) * 10 : mood === "offline" ? 6 : Math.sin(t / 700) * 3;
+  const bob = mood === "waiting" ? -Math.abs(Math.sin(t / 180)) * 10 : mood === "done" ? -Math.abs(Math.sin(t / 130)) * 14
+    : mood === "offline" ? 6 : Math.sin(t / 700) * 3;
   const cx = CX, cy = CY + bob;
   const grey = mood === "offline";
 
   // shadow on the "ground"
   ctx.fillStyle = "rgba(0,0,0,0.18)";
   ctx.beginPath(); ctx.ellipse(cx, CY + 52, 52 - bob, 7, 0, 0, Math.PI * 2); ctx.fill();
+
+  drawTail(cx, cy, t, grey);
 
   // aura
   ctx.save();
@@ -140,7 +186,35 @@ function drawCloud(t) {
   if (mood === "offline") drawZzz(cx, cy, t);
   if (status && status.reviews > 0 && mood !== "offline") drawLetter(cx, cy, t);
   if (mood === "working" && status) badge(cx + 52, cy - 34, `⚡${status.working}`, look.aura);
+  if (mood === "done") drawCheck(cx, cy, t);
   if (status && status.waiting.length > 1) badge(cx + 52, cy - 34, `${status.waiting.length}`, look.aura);
+}
+
+// A round, fluffy pompom on the cloud's back, like a bunny tail: it sits on the side away from where the cloud
+// goes, wiggles faster while moving, and sags a little when the hub is down.
+const POM = [[0, 0, 13], [-8, -7, 7], [8, -7, 7], [-10, 3, 6.5], [10, 3, 6.5], [-5, 10, 6.5], [5, 10, 6.5], [0, -11, 6]];
+function drawTail(cx, cy, t, grey) {
+  tailShown += ((t - steppedAt < 400 && slant > 0.55 ? 1 : 0) - tailShown) * 0.06;
+  if (tailShown < 0.02) return;
+  let diff = tailWant - tailAngle;
+  diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  tailAngle += diff * 0.05;
+  const wiggle = grey ? 0 : LOOK[mood].speed ? Math.sin(t / 110) * 2.5 : Math.sin(t / 450) * 1.5;
+  const side = Math.cos(tailAngle) < 0 ? -1 : 1;           // left or right of the body
+  const x = cx + side * 62 + wiggle, y = cy + 18 + (grey ? 6 : 0) + Math.sin(tailAngle) * 6;   // half tucked behind
+  ctx.save();
+  ctx.shadowColor = LOOK[mood].aura;
+  ctx.shadowBlur = 8;
+  ctx.globalAlpha = tailShown;
+  // One shape, one fill: a soft round ball with a fluffy edge, no seams between the puffs.
+  const ball = new Path2D();
+  for (const [dx, dy, r] of POM) { ball.moveTo(x + dx + r, y + dy); ball.arc(x + dx, y + dy, r, 0, Math.PI * 2); }
+  const g = ctx.createRadialGradient(x - 5, y - 6, 2, x, y, 17);
+  if (grey) { g.addColorStop(0, "#dde0e6"); g.addColorStop(1, "#8f96a1"); }
+  else { g.addColorStop(0, "#ffffff"); g.addColorStop(0.6, "#f1f6ff"); g.addColorStop(1, "#c9daf5"); }
+  ctx.fillStyle = g;
+  ctx.fill(ball, "nonzero");
+  ctx.restore();
 }
 
 function drawFace(cx, cy, t) {
@@ -165,6 +239,11 @@ function drawFace(cx, cy, t) {
     return;
   }
   shades(cx, eyesY, 1, 0);
+  if (mood === "done") {   // a wide grin
+    ctx.strokeStyle = "#1d2433"; ctx.lineWidth = 2.4; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(cx, cy + 6, 13, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    return;
+  }
   // a small confident smile
   ctx.strokeStyle = "#1d2433"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
   ctx.beginPath(); ctx.arc(cx + 4, cy + 10, 9, 0.25 * Math.PI, 0.7 * Math.PI); ctx.stroke();
@@ -198,6 +277,19 @@ function drawBolts(cx, cy, t) {
   const side = phase === 1 ? -1 : 1;
   const x = cx + side * 58, y = cy + 6;
   ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x - 5 * side, y); ctx.lineTo(x + 3 * side, y); ctx.lineTo(x - 3 * side, y + 16); ctx.stroke();
+  ctx.restore();
+}
+
+// A check mark that pops in beside the cloud.
+function drawCheck(cx, cy, t) {
+  const k = Math.min(1, (DONE_MS - (done.until - t)) / 250);
+  ctx.save();
+  ctx.translate(cx + 56, cy - 30);
+  ctx.scale(k, k);
+  ctx.fillStyle = LOOK.done.aura;
+  ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#10301a"; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-1, 4); ctx.lineTo(6, -4); ctx.stroke();
   ctx.restore();
 }
 
@@ -237,6 +329,10 @@ function drawBubble() {
   if (mood === "waiting") {
     const w = status.waiting[0];
     lines = [`? ${w.host || "이 Mac"} · ${w.title}`, w.question, w.answerable ? "눌러서 답하기" : "세션에서 답해 주세요"];
+  } else if (mood === "done") {
+    const s = done.session;
+    lines = [`✓ ${s.host || "이 Mac"} · ${s.title}`, done.more ? `외 ${done.more}개도 끝났어요` : "Claude 가 일을 마쳤어요",
+      "눌러서 thync 열기"];
   } else if (hovered) {
     lines = mood === "offline" ? ["thync 허브가 꺼져 있어요", "메뉴 막대에서 켤 수 있어요"]
       : [`집중 ${status.focus} · Claude 작업 ${status.working} · 리뷰 ${status.reviews}`,
@@ -315,6 +411,7 @@ async function start() {
   setInterval(poll, 2000);
   let moving = false;
   const frame = (t) => {
+    if (mood === "done" && t >= done.until) { mood = currentMood(); target = null; }
     ctx.clearRect(0, 0, W, H);
     drawCloud(t);
     drawBubble();

@@ -65,7 +65,7 @@ fn open_thync(app: AppHandle) -> Result<(), String> {
     show_main(&app).map_err(|e| e.to_string())
 }
 
-/// A macOS notification and a short sound, for a question waiting on me.
+/// A macOS notification and a short sound, for a question waiting on me or a long run that just ended.
 #[tauri::command]
 fn notify(app: AppHandle, title: String, body: String) {
     let _ = app.notification().builder().title(title).body(body).show();

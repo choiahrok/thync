@@ -13,6 +13,7 @@ os.environ["THYNC_HOME"] = tempfile.mkdtemp()
 
 from thync import ask, export, graph, server  # noqa: E402
 from thync.sources import remote  # noqa: E402
+from thync.config import RUNNING_STALE_SEC as RUNNING_STALE  # noqa: E402
 from thync.sources.claude_code import Session  # noqa: E402
 
 
@@ -113,6 +114,24 @@ class HubTest(unittest.TestCase):
         self.assertEqual(far["detail"]["waiting"]["id"], "q-remote")
         self.assertEqual(g["hosts"], [{"name": "devbox1", "ok": True, "error": "", "seen": int(self.r.seen)}])
         self.assertTrue(any(a.get("host") == "devbox1" for a in g["activity"]))
+
+    def test_status_tells_the_desktop_which_sessions_work_wait_or_ended(self):
+        self.r.fetch()
+        local = session_log(self.dir, "bbbb-local", "/Users/me/tool/thync")
+
+        def states(ago=30):
+            with mock.patch.multiple(graph, SESSIONS=True, SOURCES={"claude_code"}), \
+                    mock.patch.object(graph, "load_sessions", return_value=[(local, time.time() - ago, 0)]):
+                return {x["session"]: x["state"] for x in server.status_of(graph.build_graph(7))["sessions"]}
+
+        self.assertEqual(states(), {"session:aaaa-remote": "waiting", "session:bbbb-local": "working"})
+        with local.path.open("a") as f:  # Claude ends its turn
+            f.write(json.dumps({"type": "assistant", "timestamp": iso(5),
+                                "message": {"stop_reason": "end_turn", "content": []}}, separators=(",", ":")) + "\n")
+        local.update()
+        self.assertEqual(states()["session:bbbb-local"], "ended")
+        local.claude_turn = True  # Claude's turn, but the log went quiet
+        self.assertEqual(states(RUNNING_STALE + 1)["session:bbbb-local"], "stalled")
 
     def test_unreachable_remote_keeps_sessions_but_not_as_working(self):
         self.r.fetch()

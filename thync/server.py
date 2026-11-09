@@ -303,7 +303,17 @@ def status_of(g: dict) -> dict:
             "working": sum(1 for n in nodes if n["kind"] == "workThread" and n["detail"].get("claude_working")),
             "focus": sum(1 for n in nodes if "focus" in n["roles"] and "last_at" in n["detail"]),
             "reviews": sum(1 for n in nodes if "review" in n["roles"]),
+            "sessions": [session_state(n) for n in nodes if n["kind"] == "workThread"],
             "hosts": g.get("hosts", [])}
+
+
+def session_state(n: dict) -> dict:
+    """One session for the desktop character, which notices a long or background run ending (desktop/ui/pet.js)."""
+    d = n["detail"]
+    state = ("waiting" if d.get("waiting") else "working" if d.get("claude_working")
+             else "ended" if d.get("turn_ended") else "stalled")  # stalled: Claude's turn, but the log went quiet
+    return {"session": n["id"], "title": n["name"], "host": d.get("host", ""), "state": state,
+            "background": "running" in n["roles"]}
 
 
 def main() -> None:
